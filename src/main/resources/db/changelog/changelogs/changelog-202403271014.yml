@@ -1,0 +1,13 @@
+databaseChangeLog:
+    - changeSet:
+        id: "1"
+        author: "am"
+        changes:
+          - sqlFile:
+                path: db/changelog/create/create-day_log.sql
+    - changeSet:
+        id: "2"
+        author: "am"
+        changes:
+            - sqlFile:
+                path: db/changelog/create/create-time_entry.sql
