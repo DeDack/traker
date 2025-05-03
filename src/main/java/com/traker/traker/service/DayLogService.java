@@ -1,15 +1,19 @@
 package com.traker.traker.service;
 
 import com.traker.traker.entity.DayLog;
+import com.traker.traker.entity.Status;
 import com.traker.traker.entity.TimeEntry;
+import com.traker.traker.exception.StatusNotFoundException;
 import com.traker.traker.repository.DayLogRepository;
+import com.traker.traker.repository.StatusRepository;
 import com.traker.traker.repository.TimeEntryRepository;
 import com.traker.traker.dto.entity.TimeEntryDto;
 import com.traker.traker.mapper.TimeEntryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +28,7 @@ public class DayLogService {
     private final DayLogRepository dayLogRepository;
     private final TimeEntryRepository timeEntryRepository;
     private final TimeEntryMapper timeEntryMapper;
+    private final StatusRepository statusRepository;
 
     /**
      * Получает список объектов TimeEntryDto для заданной даты.
@@ -47,27 +52,53 @@ public class DayLogService {
      * @param timeEntryDto объект DTO, содержащий детали записи времени
      * @return обновленный или созданный объект TimeEntryDto
      */
+
+
     @Transactional
     public TimeEntryDto updateTimeEntry(String date, TimeEntryDto timeEntryDto) {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+
+        logger.info("Начало метода updateTimeEntry для даты: {} и объекта timeEntryDto: {}", date, timeEntryDto);
+
         LocalDate localDate = parseDate(date);
-        DayLog dayLog = dayLogRepository.findByDate(localDate).orElseGet(() -> createNewDayLog(localDate));
+        logger.info("Дата после парсинга: {}", localDate);
 
-        // Получение часа из DTO
+        DayLog dayLog = dayLogRepository.findByDate(localDate)
+                .orElseGet(() -> {
+                    logger.info("DayLog не найден для даты: {}. Создание нового DayLog.", localDate);
+                    return createNewDayLog(localDate);
+                });
+
         int hour = timeEntryDto.getHour();
+        logger.info("Час из объекта timeEntryDto: {}", hour);
 
-        // Проверка существования записи времени
         TimeEntry timeEntry = timeEntryRepository.findByDayLogAndHour(dayLog, hour)
-                .orElseGet(() -> createNewTimeEntry(dayLog, hour));
+                .orElseGet(() -> {
+                    logger.info("TimeEntry не найден для DayLog: {} и часа: {}. Создание нового TimeEntry.", dayLog, hour);
+                    return createNewTimeEntry(dayLog, hour);
+                });
 
-        // Обновление существующей записи времени
+        Status status;
+        if (timeEntryDto.getStatus() != null && timeEntryDto.getStatus().getName() != null) {
+            String statusName = timeEntryDto.getStatus().getName();
+            logger.info("Статус, указанный в timeEntryDto: {}", statusName);
+            status = statusRepository.findByName(statusName)
+                    .orElseThrow(() -> new StatusNotFoundException(statusName));
+        } else {
+            logger.info("Статус не указан в timeEntryDto. Использование статуса по умолчанию.");
+            status = statusRepository.findByName("Ебланил")
+                    .orElseThrow(() -> new StatusNotFoundException("Ебланил"));
+        }
+
         timeEntryMapper.updateEntityFromDto(timeEntryDto, timeEntry);
+        timeEntry.setStatus(status);
 
-        // Сохранение записи времени в рамках транзакции
         TimeEntry savedTimeEntry = timeEntryRepository.save(timeEntry);
+        logger.info("Сохраненный TimeEntry: {}", savedTimeEntry);
 
-        // Возвращение обновленного объекта DTO
         return timeEntryMapper.toDto(savedTimeEntry);
     }
+
 
     /**
      * Парсит строку даты в объект LocalDate.
