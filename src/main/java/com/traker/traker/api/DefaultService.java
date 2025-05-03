@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
@@ -96,5 +97,12 @@ public abstract class DefaultService<ID, ENT extends DefaultEntity, DTO> {
 
     protected ENT updateInternal(ENT ent, DTO update) {
         return mapper.toEntity(update);
+    }
+
+    @Transactional(readOnly = true)
+    public DTO findByAttribute(Function<String, Optional<ENT>> findFunction, String attributeValue) {
+        ENT entity = findFunction.apply(attributeValue)
+                .orElseThrow(() -> notFoundExceptionFunction.apply((ID) attributeValue));
+        return mapper.toDto(entity);
     }
 }

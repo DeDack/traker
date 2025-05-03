@@ -1,10 +1,12 @@
 package com.traker.traker.controller;
 
+import com.traker.traker.controller.api.DayLogControllerApi;
 import com.traker.traker.dto.entity.TimeEntryDto;
 import com.traker.traker.service.DayLogService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -12,9 +14,9 @@ import java.util.List;
  * Контроллер для управления записями времени и днями.
  */
 @RestController
-@RequestMapping("/api/days")
 @RequiredArgsConstructor
-public class DayLogController {
+@Slf4j
+public class DayLogController implements DayLogControllerApi {
 
     private final DayLogService dayLogService;
 
@@ -24,8 +26,9 @@ public class DayLogController {
      * @param date строка даты в формате (yyyy-MM-dd)
      * @return список объектов TimeEntryDto
      */
-    @GetMapping("/{date}")
-    public ResponseEntity<List<TimeEntryDto>> getTimeEntriesByDate(@PathVariable String date) {
+    @Override
+    public ResponseEntity<List<TimeEntryDto>> getTimeEntriesByDate(String date) {
+        log.info("Получение списка записей времени для даты: {}", date);
         return ResponseEntity.ok(dayLogService.getTimeEntriesByDate(date));
     }
 
@@ -36,10 +39,9 @@ public class DayLogController {
      * @param timeEntryDto объект DTO, содержащий детали записи времени
      * @return обновленный или созданный объект TimeEntryDto
      */
-    @PutMapping("/{date}")
-    public ResponseEntity<TimeEntryDto> updateTimeEntry(
-            @PathVariable String date,
-            @RequestBody TimeEntryDto timeEntryDto) {
+    @Override
+    public ResponseEntity<TimeEntryDto> updateTimeEntry(String date, TimeEntryDto timeEntryDto) {
+        log.info("Обновление или создание записи времени для даты: {}, данные: {}", date, timeEntryDto);
         return ResponseEntity.ok(dayLogService.updateTimeEntry(date, timeEntryDto));
     }
 }

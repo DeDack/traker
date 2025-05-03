@@ -11,3 +11,16 @@ databaseChangeLog:
         changes:
             - sqlFile:
                 path: db/changelog/create/create-time_entry.sql
+
+    - changeSet:
+          id: "3"
+          author: "am"
+          changes:
+              - sqlFile:
+                    path: db/changelog/create/create-status.sql
+    - changeSet:
+          id: "4"
+          author: "am"
+          changes:
+              - sqlFile:
+                    path: db/changelog/update/update-time_entry.sql

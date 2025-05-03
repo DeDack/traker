@@ -1,12 +1,10 @@
 package com.traker.traker.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
-import java.util.UUID;
+import lombok.ToString;
 
 @Entity
 @Data
@@ -19,6 +17,7 @@ public class TimeEntry {
 
     @ManyToOne
     @JoinColumn(name = "day_log_id", nullable = false)
+    @ToString.Exclude
     private DayLog dayLog;
 
     @Column(nullable = false)
@@ -29,4 +28,8 @@ public class TimeEntry {
 
     @Column
     private String comment;
+
+    @ManyToOne
+    @JoinColumn(name = "status_id")
+    private Status status;
 }
