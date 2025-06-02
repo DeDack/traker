@@ -21,7 +21,10 @@ public class RoleConfiguration {
                         "/webjars/**",
                         "/swagger-resources/**",
                         "/swagger",
-                        "/favicon.ico"
+                        "/favicon.ico",
+                        "/index.html",
+                        "/login.html",
+                        "/register.html"
                 ).permitAll()
 
                 // Эндпоинты управления пользователями — доступ только USER и выше
