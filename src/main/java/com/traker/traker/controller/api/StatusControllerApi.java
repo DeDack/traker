@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@RequestMapping("/api/statuses")
 public interface StatusControllerApi {
 
     @Operation(summary = "Создать новый статус", description = "Создает новый статус в системе.")

@@ -9,4 +9,5 @@ public class TimeEntryDto {
     private boolean worked;
     private String comment;
     private Status status;
+    private Long userId; // Добавлено для привязки к пользователю
 }

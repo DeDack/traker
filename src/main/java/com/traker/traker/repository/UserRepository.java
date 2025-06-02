@@ -2,6 +2,7 @@ package com.traker.traker.repository;
 
 import com.traker.traker.api.DefaultRepository;
 import com.traker.traker.entity.User;
+import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 

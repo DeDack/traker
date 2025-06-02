@@ -1,5 +1,6 @@
 package com.traker.traker.entity;
 
+
 import com.traker.traker.api.DefaultEntity;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -17,4 +18,8 @@ public class Status extends DefaultEntity {
 
     @Column(nullable = false)
     private String name;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 }

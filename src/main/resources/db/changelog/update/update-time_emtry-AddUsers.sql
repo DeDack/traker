@@ -1,0 +1,2 @@
+ALTER TABLE time_entry
+    ADD COLUMN user_id BIGINT NOT NULL REFERENCES users(id);

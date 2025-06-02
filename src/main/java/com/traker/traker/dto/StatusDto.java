@@ -6,4 +6,5 @@ import lombok.Data;
 public class StatusDto {
     private Long id;
     private String name;
+    private Long userId;
 }

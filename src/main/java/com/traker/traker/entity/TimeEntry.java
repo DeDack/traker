@@ -20,6 +20,11 @@ public class TimeEntry {
     @ToString.Exclude
     private DayLog dayLog;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    @ToString.Exclude
+    private User user;
+
     @Column(nullable = false)
     private int hour;
 
