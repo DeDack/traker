@@ -1,6 +1,5 @@
 package com.traker.traker.config;
 
-import com.traker.traker.config.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -34,7 +33,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String jwt = null;
-        String phone = null;
+        String username = null;
 
         // Извлекаем токен из cookie
         Cookie[] cookies = request.getCookies();
@@ -48,11 +47,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         }
 
         if (jwt != null) {
-            phone = jwtUtil.getUsername(jwt);
+            username = jwtUtil.getUsername(jwt);
         }
 
-        if (phone != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(phone);
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
             if (jwtUtil.validateToken(jwt, userDetails)) {
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(

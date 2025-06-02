@@ -44,19 +44,19 @@ public class AuthService {
     private String scope;
 
     /**
-     * Аутентифицирует пользователя по номеру телефона и паролю.
+     * Аутентифицирует пользователя по имени пользователя и паролю.
      * <p>
      * При успешной аутентификации генерирует токены доступа и обновления,
      * устанавливает их в cookies и возвращает информацию о токенах.
      * </p>
      *
-     * @param authRequest DTO с номером телефона и паролем пользователя.
+     * @param authRequest DTO с именем пользователя и паролем пользователя.
      * @param response    Объект HttpServletResponse для установки cookies.
      * @return DTO с информацией о токенах.
      */
     public AuthResponseDto login(AuthRequestDto authRequest, HttpServletResponse response) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(authRequest.getPhone(), authRequest.getPassword())
+                new UsernamePasswordAuthenticationToken(authRequest.getUsername(), authRequest.getPassword())
         );
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
@@ -95,9 +95,9 @@ public class AuthService {
             throw new InvalidTokenException("Недействительный или истекший refresh-токен");
         }
 
-        String phone = jwtUtil.getUsername(refreshToken);
-        logger.info("Извлечён phone: {}", phone);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(phone);
+        String username = jwtUtil.getUsername(refreshToken);
+        logger.info("Извлечён username: {}", username);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
         JwtUtil.TokenInfo accessTokenInfo = jwtUtil.createAccessToken(userDetails);
         JwtUtil.TokenInfo newRefreshTokenInfo = jwtUtil.createRefreshToken(userDetails);

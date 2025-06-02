@@ -28,7 +28,7 @@ public class User extends DefaultEntity implements UserDetails {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String phone;
+    private String username;
 
     private String name;
 
@@ -56,7 +56,7 @@ public class User extends DefaultEntity implements UserDetails {
 
     @Override
     public String getUsername() {
-        return phone;
+        return username;
     }
 
     @Override

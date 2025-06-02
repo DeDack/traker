@@ -22,26 +22,13 @@ public class UserDto {
     /** Уникальный идентификатор пользователя. */
     private Long id;
 
-    /** Телефон пользователя. */
-    @Size(max = 20, message = "Телефон не должен превышать 20 символов")
-    private String phone;
+    /** Имя пользователя (username). */
+    @Size(max = 50, message = "Имя пользователя не должно превышать 50 символов")
+    private String username;
 
     /** Имя пользователя. */
     @Size(max = 100, message = "Имя не должно превышать 100 символов")
     private String name;
-
-    /** Email пользователя. */
-    @Email(message = "Email должен быть валидным")
-    @Size(max = 255, message = "Email не должен превышать 255 символов")
-    private String email;
-
-    /** Ссылка на профиль Telegram. */
-    @Size(max = 255, message = "Ссылка на Telegram не должна превышать 255 символов")
-    private String telegram;
-
-    /** Ссылка на профиль WhatsApp. */
-    @Size(max = 255, message = "Ссылка на WhatsApp не должна превышать 255 символов")
-    private String whatsapp;
 
     /** Дата и время регистрации. */
     private LocalDateTime createdAt;

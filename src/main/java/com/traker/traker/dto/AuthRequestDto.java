@@ -13,9 +13,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AuthRequestDto {
 
-    /** Телефон пользователя (используется как логин). */
-    @NotBlank(message = "Телефон обязателен")
-    private String phone;
+    /** Имя пользователя (используется как логин). */
+    @NotBlank(message = "Имя пользователя обязательно")
+    private String username;
 
     /** Пароль пользователя. */
     @NotBlank(message = "Пароль обязателен")

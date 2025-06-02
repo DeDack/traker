@@ -22,7 +22,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    @Operation(summary = "Аутентификация пользователя", description = "Аутентифицирует пользователя по номеру телефона и паролю, возвращает токены доступа и обновления.")
+    @Operation(summary = "Аутентификация пользователя", description = "Аутентифицирует пользователя по имени пользователя и паролю, возвращает токены доступа и обновления.")
     @ApiResponse(responseCode = "200", description = "Успешная аутентификация", content = @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponseDto.class)))
     @ApiResponse(responseCode = "400", description = "Неверные учетные данные")
     public AuthResponseDto login(@Valid @RequestBody AuthRequestDto authRequest, HttpServletResponse response) {

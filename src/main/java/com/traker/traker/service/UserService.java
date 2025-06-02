@@ -81,13 +81,13 @@ public class UserService extends DefaultService<Long, User, UserDto> {
      */
     @Transactional
     public UserDto createUser(CreateUserDto createUserDto, HttpServletResponse response) {
-        String normalizedPhone = normalizePhone(createUserDto.getPhone());
-        if (userRepository.existsByPhone(normalizedPhone)) {
-            throw new UserAlreadyExistsException("Пользователь с номером " + normalizedPhone + " уже существует");
+        String normalizedUsername = createUserDto.getUsername();
+        if (userRepository.existsByUsername(normalizedUsername)) {
+            throw new UserAlreadyExistsException("Пользователь с именем " + normalizedUsername + " уже существует");
         }
 
         User user = userMapper.toEntity(createUserDto);
-        user.setPhone(normalizedPhone);
+        user.setUsername(normalizedUsername);
         user.setPassword(passwordEncoder.encode(createUserDto.getPassword()));
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
@@ -105,7 +105,7 @@ public class UserService extends DefaultService<Long, User, UserDto> {
 
         // Автоматический логин
         AuthRequestDto authRequest = new AuthRequestDto();
-        authRequest.setPhone(createUserDto.getPhone());
+        authRequest.setUsername(createUserDto.getUsername());
         authRequest.setPassword(createUserDto.getPassword());
         authService.login(authRequest, response);
 
@@ -130,12 +130,12 @@ public class UserService extends DefaultService<Long, User, UserDto> {
         CommonUtils.setIfNotBlank(updateUserDto.getName(), user::setName);
         CommonUtils.setIfNotBlank(updateUserDto.getPassword(), password ->
                 user.setPassword(passwordEncoder.encode(password)));
-        CommonUtils.setIfNotBlank(updateUserDto.getPhone(), phone -> {
-            String normalizedPhone = normalizePhone(phone);
-            if (userRepository.existsByPhone(normalizedPhone) && !normalizedPhone.equals(user.getPhone())) {
-                throw new UserAlreadyExistsException("Номер телефона " + normalizedPhone + " уже занят");
+        CommonUtils.setIfNotBlank(updateUserDto.getUsername(), username -> {
+            String normalizedUsername = username;
+            if (userRepository.existsByUsername(normalizedUsername) && !normalizedUsername.equals(user.getUsername())) {
+                throw new UserAlreadyExistsException("Имя пользователя " + normalizedUsername + " уже занято");
             }
-            user.setPhone(normalizedPhone);
+            user.setUsername(normalizedUsername);
         });
         user.setUpdatedAt(LocalDateTime.now());
 
@@ -174,9 +174,9 @@ public class UserService extends DefaultService<Long, User, UserDto> {
      */
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String phone = authentication.getName();
-        return userRepository.findByPhone(phone)
-                .orElseThrow(() -> new NotFoundException("User", phone) {
+        String username = authentication.getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new NotFoundException("User", username) {
                     @Override
                     public String getEntityClassName() {
                         return "Пользователь";
@@ -185,16 +185,13 @@ public class UserService extends DefaultService<Long, User, UserDto> {
     }
 
     /**
-     * Нормализует номер телефона, заменяя 8 на +7.
+     * Нормализует имя пользователя.
      *
-     * @param phone Номер телефона
-     * @return Нормализованный номер
+     * @param username Имя пользователя
+     * @return Нормализованное имя
      */
-    private String normalizePhone(String phone) {
-        if (phone.startsWith("8")) {
-            return "+7" + phone.substring(1);
-        }
-        return phone;
+    private String normalizeUsername(String username) {
+        return username;
     }
 
     @Override
