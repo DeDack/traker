@@ -7,7 +7,7 @@ import com.traker.traker.exception.StatusNotFoundException;
 import com.traker.traker.repository.DayLogRepository;
 import com.traker.traker.repository.StatusRepository;
 import com.traker.traker.repository.TimeEntryRepository;
-import com.traker.traker.dto.entity.TimeEntryDto;
+import com.traker.traker.dto.TimeEntryDto;
 import com.traker.traker.mapper.TimeEntryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

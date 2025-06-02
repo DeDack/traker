@@ -1,6 +1,6 @@
 package com.traker.traker.controller.api;
 
-import com.traker.traker.dto.entity.TimeEntryDto;
+import com.traker.traker.dto.TimeEntryDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;

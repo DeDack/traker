@@ -1,6 +1,6 @@
 package com.traker.traker.mapper;
 
-import com.traker.traker.dto.entity.StatusDto;
+import com.traker.traker.dto.StatusDto;
 import com.traker.traker.entity.Status;
 import com.traker.traker.api.DefaultMapper;
 import org.mapstruct.Mapper;

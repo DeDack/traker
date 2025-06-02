@@ -1,16 +1,13 @@
 package com.traker.traker.service;
 
 import com.traker.traker.api.DefaultService;
-import com.traker.traker.dto.entity.StatusDto;
+import com.traker.traker.dto.StatusDto;
 import com.traker.traker.entity.Status;
 import com.traker.traker.exception.StatusNotFoundException;
 import com.traker.traker.mapper.StatusMapper;
 import com.traker.traker.repository.StatusRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class StatusService extends DefaultService<Long, Status, StatusDto> {

@@ -1,7 +1,7 @@
 package com.traker.traker.controller;
 
 import com.traker.traker.controller.api.StatusControllerApi;
-import com.traker.traker.dto.entity.StatusDto;
+import com.traker.traker.dto.StatusDto;
 import com.traker.traker.entity.Status;
 import com.traker.traker.service.StatusService;
 import org.springframework.beans.factory.annotation.Autowired;

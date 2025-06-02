@@ -1,4 +1,4 @@
-package com.traker.traker.dto.entity;
+package com.traker.traker.dto;
 
 import com.traker.traker.entity.Status;
 import lombok.Data;

@@ -24,3 +24,30 @@ databaseChangeLog:
           changes:
               - sqlFile:
                     path: db/changelog/update/update-time_entry.sql
+
+    - changeSet:
+        id: "5"
+        author: "am"
+        changes:
+          - sqlFile:
+              path: db/changelog/create/create-users.sql
+
+    - changeSet:
+        id: "6"
+        author: "am"
+        changes:
+          - sqlFile:
+              path: db/changelog/create/create-roles.sql
+
+    - changeSet:
+        id: "7"
+        author: "am"
+        changes:
+          - sqlFile:
+              path: db/changelog/create/create-user_roles.sql
+    - changeSet:
+        id: "8"
+        author: "am"
+        changes:
+          - sqlFile:
+              path: db/changelog/insert/insert-roles.sql

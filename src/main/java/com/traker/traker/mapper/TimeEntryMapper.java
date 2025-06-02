@@ -1,7 +1,7 @@
 package com.traker.traker.mapper;
 
 import com.traker.traker.api.DefaultMapper;
-import com.traker.traker.dto.entity.TimeEntryDto;
+import com.traker.traker.dto.TimeEntryDto;
 import com.traker.traker.entity.TimeEntry;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

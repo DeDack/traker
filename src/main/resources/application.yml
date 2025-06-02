@@ -15,3 +15,12 @@ springdoc:
   swagger-ui:
     path: /swagger
 # spring.application.name=traker
+
+jwt:
+  secret: MzJqOUtMbVBxWHJZeFo4elc1dk4ydFk1dUIzblFlSjljQThkRjZnSDRpTTFw
+  access_token_expiration: 3600000 # 1 час в миллисекундах
+  refresh_token_expiration: 604800000 # 7 дней в миллисекундах
+
+auth:
+  token_type: Bearer
+  scope: api.read api.write

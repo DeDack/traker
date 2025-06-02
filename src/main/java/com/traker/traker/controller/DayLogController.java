@@ -1,7 +1,7 @@
 package com.traker.traker.controller;
 
 import com.traker.traker.controller.api.DayLogControllerApi;
-import com.traker.traker.dto.entity.TimeEntryDto;
+import com.traker.traker.dto.TimeEntryDto;
 import com.traker.traker.service.DayLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
