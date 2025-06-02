@@ -24,7 +24,8 @@ public class RoleConfiguration {
                         "/favicon.ico",
                         "/index.html",
                         "/login.html",
-                        "/register.html"
+                        "/register.html",
+                        "/scripts.js"
                 ).permitAll()
 
                 // Эндпоинты управления пользователями — доступ только USER и выше
