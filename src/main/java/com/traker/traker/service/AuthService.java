@@ -148,11 +148,13 @@ public class AuthService {
                 .httpOnly(true)
                 .path("/")
                 .maxAge(accessTokenInfo.getExpiresIn())
+                .sameSite("Strict")
                 .build();
         ResponseCookie refreshTokenCookie = ResponseCookie.from(REFRESH_TOKEN, refreshTokenInfo.getToken())
                 .httpOnly(true)
                 .path("/")
                 .maxAge(refreshTokenInfo.getExpiresIn())
+                .sameSite("Strict")
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, accessTokenCookie.toString());

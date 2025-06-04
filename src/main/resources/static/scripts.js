@@ -1,32 +1,7 @@
 let statusOptions = [];
 
-// Ключ для хранения порядка в localStorage
+// Ключ для хранения порядка статусов в localStorage
 const STATUS_ORDER_KEY = 'statusOrder';
-const TOKEN_KEY = 'jwtToken';
-
-// Проверка авторизации
-function isAuthenticated() {
-    const token = localStorage.getItem(TOKEN_KEY);
-    console.log('Checking authentication, token exists:', !!token);
-    return !!token;
-}
-
-// Получение токена
-function getToken() {
-    return localStorage.getItem(TOKEN_KEY);
-}
-
-// Установка токена
-function setToken(token) {
-    console.log('Setting token:', token);
-    localStorage.setItem(TOKEN_KEY, token);
-}
-
-// Удаление токена
-function removeToken() {
-    console.log('Removing token');
-    localStorage.removeItem(TOKEN_KEY);
-}
 
 // Показ сообщения
 function showMessage(message, type = 'info') {
@@ -42,6 +17,117 @@ function showMessage(message, type = 'info') {
     }
 }
 
+// Показ/скрытие лоадера
+function toggleLoader(show) {
+    const loader = document.getElementById('loader');
+    if (loader) {
+        loader.style.display = show ? 'block' : 'none';
+    }
+}
+
+// Проверка авторизации через API
+async function isAuthenticated() {
+    console.log('Checking authentication status');
+    try {
+        const resp = await fetch('/api/users/me', {
+            method: 'GET',
+            credentials: 'include'
+        });
+        console.log('Auth check status:', resp.status);
+        return resp.ok;
+    } catch (e) {
+        console.error('Error checking auth:', e);
+        return false;
+    }
+}
+
+// Обновление токена
+async function refreshAccessToken() {
+    console.log('Attempting to refresh token');
+    toggleLoader(true);
+    try {
+        const resp = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        console.log('Refresh token response status:', resp.status);
+        if (resp.ok) {
+            console.log('Token refreshed successfully');
+            return true;
+        } else {
+            console.log('Refresh failed');
+            return false;
+        }
+    } catch (e) {
+        console.error('Error refreshing token:', e);
+        return false;
+    } finally {
+        toggleLoader(false);
+    }
+}
+
+// Универсальная функция для API-запросов с ретраем
+async function apiFetch(url, options = {}, retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+        try {
+            const resp = await fetch(url, {
+                ...options,
+                credentials: 'include',
+                headers: {
+                    ...options.headers,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (resp.status === 401 || resp.status === 403) {
+                console.log(`Received ${resp.status}, attempting to refresh token`);
+                const refreshed = await refreshAccessToken();
+                if (refreshed) {
+                    // Повторяем запрос после обновления токена
+                    return fetch(url, {
+                        ...options,
+                        credentials: 'include',
+                        headers: {
+                            ...options.headers,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                } else {
+                    console.log('Refresh failed, redirecting to index');
+                    window.location.href = '/index.html';
+                    throw new Error('Authentication failed');
+                }
+            }
+            return resp;
+        } catch (e) {
+            if (i === retries) {
+                console.error('API fetch failed after retries:', e);
+                window.location.href = '/index.html';
+                throw e;
+            }
+            console.log(`Retrying request (${i + 1}/${retries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+}
+
+// Отображение имени пользователя
+async function displayUsername() {
+    try {
+        const resp = await apiFetch('/api/users/me');
+        if (resp.ok) {
+            const user = await resp.json();
+            const usernameSpan = document.getElementById('username');
+            if (usernameSpan) {
+                usernameSpan.textContent = user.name || user.username || 'Пользователь';
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching user:', e);
+    }
+}
+
 // Регистрация
 async function register() {
     console.log('Register function called');
@@ -53,6 +139,18 @@ async function register() {
         showMessage('Заполните все поля', 'danger');
         return;
     }
+    if (username.length < 3) {
+        showMessage('Имя пользователя должно быть не короче 3 символов', 'danger');
+        return;
+    }
+    if (password.length < 6) {
+        showMessage('Пароль должен быть не короче 6 символов', 'danger');
+        return;
+    }
+    if (!/^[a-zA-Zа-яА-Я\s]+$/.test(name)) {
+        showMessage('Имя должно содержать только буквы и пробелы', 'danger');
+        return;
+    }
 
     const payload = { name, username, password };
     console.log('Sending register request with payload:', payload);
@@ -61,14 +159,14 @@ async function register() {
         const resp = await fetch('/api/users/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            credentials: 'include'
         });
 
         console.log('Register response status:', resp.status);
-
         if (resp.ok) {
             showMessage('Регистрация успешна! Войдите в систему.', 'success');
-            setTimeout(() => window.location.href = 'login.html', 2000);
+            setTimeout(() => window.location.href = '/login.html', 2000);
         } else {
             const error = await resp.text();
             showMessage(error || 'Ошибка регистрации', 'danger');
@@ -97,16 +195,14 @@ async function login() {
         const resp = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            credentials: 'include'
         });
 
         console.log('Login response status:', resp.status);
-
         if (resp.ok) {
-            const data = await resp.json();
-            console.log('Received token:', data.token);
-            setToken(data.token);
-            window.location.href = 'tracker.html';
+            console.log('Login successful, redirecting to tracker');
+            window.location.href = '/tracker.html';
         } else {
             const error = await resp.text();
             showMessage(error || 'Ошибка входа', 'danger');
@@ -118,32 +214,31 @@ async function login() {
 }
 
 // Выход
-function logout() {
+async function logout() {
     console.log('Logout function called');
-    removeToken();
-    window.location.href = 'index.html';
+    try {
+        const resp = await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        console.log('Logout response status:', resp.status);
+        window.location.href = '/index.html';
+    } catch (error) {
+        console.error('Logout error:', error);
+        window.location.href = '/index.html';
+    }
 }
 
 // Загрузка статусов
 async function fetchStatuses() {
-    if (!isAuthenticated()) {
-        console.log('Not authenticated, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
+    console.log('Fetching statuses');
     try {
-        console.log('Fetching statuses');
-        const resp = await fetch('/api/statuses/getAllStatuses', {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
+        const resp = await apiFetch('/api/statuses/getAllStatuses');
         console.log('Fetch statuses response status:', resp.status);
         if (resp.ok) {
             statusOptions = await resp.json();
             console.log('Statuses loaded:', statusOptions);
             applySavedOrder();
-        } else if (resp.status === 401) {
-            console.log('Unauthorized, logging out');
-            logout();
         } else {
             showMessage('Ошибка загрузки статусов', 'danger');
         }
@@ -178,25 +273,15 @@ function saveCurrentOrder() {
 
 // Загрузка данных дня
 async function loadDayData() {
-    if (!isAuthenticated()) {
-        console.log('Not authenticated, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
     const date = document.getElementById('datePicker')?.value;
     if (!date) return;
     try {
         console.log('Loading day data for date:', date);
-        const resp = await fetch(`/api/days/${date}`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
+        const resp = await apiFetch(`/api/days/${date}`);
         console.log('Load day data response status:', resp.status);
         if (resp.ok) {
             const entries = await resp.json();
             renderTimeEntries(entries);
-        } else if (resp.status === 401) {
-            console.log('Unauthorized, logging out');
-            logout();
         } else {
             showMessage('Ошибка загрузки данных дня!', 'danger');
         }
@@ -208,25 +293,15 @@ async function loadDayData() {
 
 // Обновление отработанных часов
 async function updateWorkedHours() {
-    if (!isAuthenticated()) {
-        console.log('Not authenticated, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
     const date = document.getElementById('datePicker')?.value;
     if (!date) return;
     try {
         console.log('Updating worked hours for date:', date);
-        const resp = await fetch(`/api/stats/daily?date=${date}`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
+        const resp = await apiFetch(`/api/stats/daily?date=${date}`);
         console.log('Update worked hours response status:', resp.status);
         if (resp.ok) {
             const hours = await resp.json();
             document.getElementById('workedHours').textContent = hours;
-        } else if (resp.status === 401) {
-            console.log('Unauthorized, logging out');
-            logout();
         }
     } catch (e) {
         console.error('Error updating worked hours:', e);
@@ -266,11 +341,6 @@ function renderTimeEntries(timeEntries) {
 
 // Сохранение записи времени
 async function saveTimeEntry(hour) {
-    if (!isAuthenticated()) {
-        console.log('Not authenticated, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
     const date = document.getElementById('datePicker')?.value;
     if (!date) return;
     const worked = document.querySelector(`input[type="checkbox"][data-hour="${hour}"]`)?.checked;
@@ -281,21 +351,14 @@ async function saveTimeEntry(hour) {
     console.log('Saving time entry with payload:', payload);
 
     try {
-        const resp = await fetch(`/api/days/${date}`, {
+        const resp = await apiFetch(`/api/days/${date}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
-            },
             body: JSON.stringify(payload)
         });
         console.log('Save time entry response status:', resp.status);
         if (resp.ok) {
             showMessage(`Час ${hour}:00 сохранён!`, 'success');
             await updateWorkedHours();
-        } else if (resp.status === 401) {
-            console.log('Unauthorized, logging out');
-            logout();
         } else {
             showMessage('Ошибка при сохранении', 'danger');
         }
@@ -343,23 +406,14 @@ function displayStatuses() {
 
 // Добавление статуса
 async function addStatus() {
-    if (!isAuthenticated()) {
-        console.log('Not authenticated, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
     const name = document.getElementById('newStatusName')?.value.trim();
     if (!name) return;
     const payload = { name };
     console.log('Adding status with payload:', payload);
 
     try {
-        const resp = await fetch('/api/statuses/createStatus', {
+        const resp = await apiFetch('/api/statuses/createStatus', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
-            },
             body: JSON.stringify(payload)
         });
         console.log('Add status response status:', resp.status);
@@ -369,9 +423,6 @@ async function addStatus() {
             displayStatuses();
             await loadDayData();
             await updateWorkedHours();
-        } else if (resp.status === 401) {
-            console.log('Unauthorized, logging out');
-            logout();
         } else {
             showMessage('Ошибка добавления', 'danger');
         }
@@ -383,23 +434,14 @@ async function addStatus() {
 
 // Обновление статуса
 async function updateStatus(id) {
-    if (!isAuthenticated()) {
-        console.log('Not authenticated, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
     const name = document.querySelector(`input[data-id="${id}"]`)?.value.trim();
     if (!name) return;
     const payload = { name };
     console.log('Updating status with payload:', payload);
 
     try {
-        const resp = await fetch(`/api/statuses/updateStatus/${id}`, {
+        const resp = await apiFetch(`/api/statuses/updateStatus/${id}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
-            },
             body: JSON.stringify(payload)
         });
         console.log('Update status response status:', resp.status);
@@ -408,9 +450,6 @@ async function updateStatus(id) {
             displayStatuses();
             await loadDayData();
             await updateWorkedHours();
-        } else if (resp.status === 401) {
-            console.log('Unauthorized, logging out');
-            logout();
         } else {
             showMessage('Ошибка обновления', 'danger');
         }
@@ -422,17 +461,11 @@ async function updateStatus(id) {
 
 // Удаление статуса
 async function deleteStatus(id) {
-    if (!isAuthenticated()) {
-        console.log('Not authenticated, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
     console.log('Deleting status with id:', id);
 
     try {
-        const resp = await fetch(`/api/statuses/deleteStatus/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${getToken()}` }
+        const resp = await apiFetch(`/api/statuses/deleteStatus/${id}`, {
+            method: 'DELETE'
         });
         console.log('Delete status response status:', resp.status);
         if (resp.ok) {
@@ -440,9 +473,6 @@ async function deleteStatus(id) {
             displayStatuses();
             await loadDayData();
             await updateWorkedHours();
-        } else if (resp.status === 401) {
-            console.log('Unauthorized, logging out');
-            logout();
         } else {
             showMessage('Ошибка удаления', 'danger');
         }
@@ -452,17 +482,34 @@ async function deleteStatus(id) {
     }
 }
 
+// Превентивное обновление токена
+function startTokenRefreshTimer() {
+    setInterval(async () => {
+        if (await isAuthenticated()) {
+            await refreshAccessToken();
+        }
+    }, 55 * 60 * 1000); // Каждые 55 минут
+}
+
 // Инициализация
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM loaded, current path:', window.location.pathname);
+    startTokenRefreshTimer();
+
     if (window.location.pathname.endsWith('tracker.html')) {
-        if (!isAuthenticated()) {
-            console.log('Not authenticated, redirecting to login');
-            window.location.href = 'login.html';
-            return;
+        const authenticated = await isAuthenticated();
+        if (!authenticated) {
+            console.log('Not authenticated, attempting to refresh token');
+            const refreshed = await refreshAccessToken();
+            if (!refreshed) {
+                console.log('Refresh failed, redirecting to index');
+                window.location.href = '/index.html';
+                return;
+            }
         }
         await fetchStatuses();
         applySavedOrder();
+        await displayUsername();
 
         const today = new Date().toISOString().split('T')[0];
         const datePicker = document.getElementById('datePicker');
@@ -478,10 +525,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             await updateWorkedHours();
             displayStatuses();
         }
-    } else if (window.location.pathname.endsWith('index.html')) {
-        if (isAuthenticated()) {
+    } else if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/') {
+        const authenticated = await isAuthenticated();
+        if (authenticated) {
             console.log('Authenticated, redirecting to tracker');
-            window.location.href = 'tracker.html';
+            window.location.href = '/tracker.html';
+        } else {
+            console.log('Not authenticated, attempting to refresh token');
+            const refreshed = await refreshAccessToken();
+            if (refreshed) {
+                console.log('Token refreshed, redirecting to tracker');
+                window.location.href = '/tracker.html';
+            }
+        }
+    } else if (window.location.pathname.endsWith('login.html') || window.location.pathname.endsWith('register.html')) {
+        const authenticated = await isAuthenticated();
+        if (authenticated) {
+            console.log('Authenticated, redirecting to tracker');
+            window.location.href = '/tracker.html';
+        } else {
+            console.log('Not authenticated, attempting to refresh token');
+            const refreshed = await refreshAccessToken();
+            if (refreshed) {
+                console.log('Token refreshed, redirecting to tracker');
+                window.location.href = '/tracker.html';
+            }
         }
     }
 });
