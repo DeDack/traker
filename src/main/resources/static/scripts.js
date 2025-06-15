@@ -4,16 +4,26 @@ let statusOptions = [];
 const STATUS_ORDER_KEY = 'statusOrder';
 
 // Показ сообщения
-function showMessage(message, type = 'info') {
+function showMessage(message, type = 'info', redirectUrl = null) {
     console.log('Showing message:', message, 'Type:', type);
     const msgDiv = document.getElementById('message');
     if (msgDiv) {
         msgDiv.textContent = message;
         msgDiv.className = `alert alert-${type}`;
-        setTimeout(() => {
-            msgDiv.textContent = '';
-            msgDiv.className = '';
-        }, 3000);
+        if (redirectUrl) {
+            setTimeout(() => {
+                msgDiv.textContent = '';
+                msgDiv.className = '';
+                window.location.href = redirectUrl;
+            }, 2000);
+        } else {
+            setTimeout(() => {
+                msgDiv.textContent = '';
+                msgDiv.className = '';
+            }, 3000);
+        }
+    } else if (redirectUrl) {
+        window.location.href = redirectUrl;
     }
 }
 
@@ -56,7 +66,8 @@ async function refreshAccessToken() {
             console.log('Token refreshed successfully');
             return true;
         } else {
-            console.log('Refresh failed');
+            const error = await resp.text();
+            console.log('Refresh failed:', error || 'Unknown error');
             return false;
         }
     } catch (e) {
@@ -71,6 +82,7 @@ async function refreshAccessToken() {
 async function apiFetch(url, options = {}, retries = 2) {
     for (let i = 0; i <= retries; i++) {
         try {
+            console.log(`Sending request to ${url}, attempt ${i + 1}`);
             const resp = await fetch(url, {
                 ...options,
                 credentials: 'include',
@@ -81,9 +93,10 @@ async function apiFetch(url, options = {}, retries = 2) {
             });
 
             if (resp.status === 401 || resp.status === 403) {
-                console.log(`Received ${resp.status}, attempting to refresh token`);
+                console.log(`Received ${resp.status} for ${url}, attempting to refresh token`);
                 const refreshed = await refreshAccessToken();
                 if (refreshed) {
+                    console.log('Token refreshed, retrying request');
                     // Повторяем запрос после обновления токена
                     return fetch(url, {
                         ...options,
@@ -94,19 +107,20 @@ async function apiFetch(url, options = {}, retries = 2) {
                         }
                     });
                 } else {
-                    console.log('Refresh failed, redirecting to index');
-                    window.location.href = '/index.html';
+                    console.log('Refresh failed, redirecting to login');
+                    showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
                     throw new Error('Authentication failed');
                 }
             }
+            console.log(`Request to ${url} succeeded with status ${resp.status}`);
             return resp;
         } catch (e) {
             if (i === retries) {
-                console.error('API fetch failed after retries:', e);
-                window.location.href = '/index.html';
+                console.error(`API fetch failed for ${url} after ${retries} retries:`, e);
+                showMessage('Ошибка соединения, перенаправление на страницу входа', 'danger', '/login.html');
                 throw e;
             }
-            console.log(`Retrying request (${i + 1}/${retries})...`);
+            console.log(`Retrying request to ${url} (${i + 1}/${retries})...`);
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
@@ -267,8 +281,31 @@ function applySavedOrder() {
 }
 
 // Сохранение порядка статусов
-function saveCurrentOrder() {
-    localStorage.setItem(STATUS_ORDER_KEY, JSON.stringify(statusOptions.map(s => s.id)));
+async function saveCurrentOrder() {
+    try {
+        // Сохраняем порядок в localStorage
+        localStorage.setItem(STATUS_ORDER_KEY, JSON.stringify(statusOptions.map(s => s.id)));
+        console.log('Saved status order to localStorage:', statusOptions.map(s => s.id));
+
+        // Обновляем порядок на сервере
+        for (let i = 0; i < statusOptions.length; i++) {
+            const status = statusOptions[i];
+            const payload = { name: status.name, order: i };
+            console.log(`Updating status ${status.id} with order ${i}`);
+            const resp = await apiFetch(`/api/statuses/updateStatus/${status.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) {
+                console.error(`Failed to update status ${status.id}:`, resp.status);
+                showMessage(`Ошибка обновления порядка статуса ${status.name}`, 'danger');
+            }
+        }
+        console.log('Status order updated on server');
+    } catch (e) {
+        console.error('Error saving status order:', e);
+        showMessage('Ошибка сохранения порядка статусов', 'danger');
+    }
 }
 
 // Загрузка данных дня
@@ -502,8 +539,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('Not authenticated, attempting to refresh token');
             const refreshed = await refreshAccessToken();
             if (!refreshed) {
-                console.log('Refresh failed, redirecting to index');
-                window.location.href = '/index.html';
+                console.log('Refresh failed, redirecting to login');
+                showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
                 return;
             }
         }

@@ -6,6 +6,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,6 +22,7 @@ import java.io.IOException;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtRequestFilter extends OncePerRequestFilter {
 
     private static final String ACCESS_TOKEN = "accessToken";
@@ -47,17 +49,34 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         }
 
         if (jwt != null) {
-            username = jwtUtil.getUsername(jwt);
+            try {
+                username = jwtUtil.getUsername(jwt);
+            } catch (Exception e) {
+                // Недействительный или истёкший токен
+                log.error("Invalid JWT token: {}", e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+                return;
+            }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            if (jwtUtil.validateToken(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                if (jwtUtil.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    log.warn("JWT token validation failed for user: {}", username);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+                    return;
+                }
+            } catch (Exception e) {
+                log.error("Error validating JWT token: {}", e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+                return;
             }
         }
 

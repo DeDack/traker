@@ -22,7 +22,7 @@ springdoc:
 
 jwt:
   secret: MzJqOUtMbVBxWHJZeFo4elc1dk4ydFk1dUIzblFlSjljQThkRjZnSDRpTTFw
-  access_token_expiration: 3600000 # 1 час в миллисекундах
+  access_token_expiration: 36000 # 1 час в миллисекундах
   refresh_token_expiration: 604800000 # 7 дней в миллисекундах
 
 auth:
