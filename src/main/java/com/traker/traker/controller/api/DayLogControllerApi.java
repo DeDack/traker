@@ -20,7 +20,7 @@ public interface DayLogControllerApi {
     ResponseEntity<List<TimeEntryDto>> getTimeEntriesByDate(@PathVariable String date);
 
     @PutMapping("/{date}")
-    @Operation(summary = "Обновление или создание записи времени для заданной даты и часа", description = "Обновляет или создает запись времени для указанной даты и часа.")
+    @Operation(summary = "Обновление или создание записи времени для заданной даты и времени", description = "Обновляет или создает запись времени для указанной даты и конкретного времени (час и минута).")
     @ApiResponse(responseCode = "200", description = "Успешное обновление или создание записи времени")
     @ApiResponse(responseCode = "400", description = "Некорректный запрос")
     @ApiResponse(responseCode = "500", description = "Внутренняя ошибка сервера")

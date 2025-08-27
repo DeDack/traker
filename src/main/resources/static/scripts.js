@@ -1,411 +1,192 @@
 let statusOptions = [];
-
-// Ключ для хранения порядка статусов в localStorage
 const STATUS_ORDER_KEY = 'statusOrder';
+let editingEntry = null;
 
-// Показ сообщения
+function pad(num) {
+    return String(num).padStart(2, '0');
+}
+
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+}
+
 function showMessage(message, type = 'info', redirectUrl = null) {
-    console.log('Showing message:', message, 'Type:', type);
     const msgDiv = document.getElementById('message');
     if (msgDiv) {
         msgDiv.textContent = message;
         msgDiv.className = `alert alert-${type}`;
         if (redirectUrl) {
-            setTimeout(() => {
-                msgDiv.textContent = '';
-                msgDiv.className = '';
-                window.location.href = redirectUrl;
-            }, 2000);
+            setTimeout(() => { window.location.href = redirectUrl; }, 2000);
         } else {
-            setTimeout(() => {
-                msgDiv.textContent = '';
-                msgDiv.className = '';
-            }, 3000);
+            setTimeout(() => { msgDiv.textContent = ''; msgDiv.className = ''; }, 3000);
         }
     } else if (redirectUrl) {
         window.location.href = redirectUrl;
     }
 }
 
-// Показ/скрытие лоадера
 function toggleLoader(show) {
     const loader = document.getElementById('loader');
-    if (loader) {
-        loader.style.display = show ? 'block' : 'none';
-    }
+    if (loader) loader.style.display = show ? 'block' : 'none';
 }
 
-// Проверка авторизации через API
 async function isAuthenticated() {
-    console.log('Checking authentication status');
     try {
-        const resp = await fetch('/api/users/me', {
-            method: 'GET',
-            credentials: 'include'
-        });
-        console.log('Auth check status:', resp.status);
+        const resp = await fetch('/api/users/me', { credentials: 'include' });
         return resp.ok;
-    } catch (e) {
-        console.error('Error checking auth:', e);
+    } catch {
         return false;
     }
 }
 
-// Обновление токена
 async function refreshAccessToken() {
-    console.log('Attempting to refresh token');
     toggleLoader(true);
     try {
-        const resp = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            credentials: 'include'
-        });
-
-        console.log('Refresh token response status:', resp.status);
-        if (resp.ok) {
-            console.log('Token refreshed successfully');
-            return true;
-        } else {
-            const error = await resp.text();
-            console.log('Refresh failed:', error || 'Unknown error');
-            return false;
-        }
-    } catch (e) {
-        console.error('Error refreshing token:', e);
+        const resp = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+        return resp.ok;
+    } catch {
         return false;
     } finally {
         toggleLoader(false);
     }
 }
 
-// Универсальная функция для API-запросов с ретраем
 async function apiFetch(url, options = {}, retries = 2) {
     for (let i = 0; i <= retries; i++) {
         try {
-            console.log(`Sending request to ${url}, attempt ${i + 1}`);
             const resp = await fetch(url, {
                 ...options,
                 credentials: 'include',
                 headers: {
-                    ...options.headers,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(options.headers || {})
                 }
             });
-
             if (resp.status === 401 || resp.status === 403) {
-                console.log(`Received ${resp.status} for ${url}, attempting to refresh token`);
-                const refreshed = await refreshAccessToken();
-                if (refreshed) {
-                    console.log('Token refreshed, retrying request');
-                    // Повторяем запрос после обновления токена
-                    return fetch(url, {
-                        ...options,
-                        credentials: 'include',
-                        headers: {
-                            ...options.headers,
-                            'Content-Type': 'application/json'
-                        }
-                    });
+                if (await refreshAccessToken()) {
+                    return apiFetch(url, options, retries - i - 1);
                 } else {
-                    console.log('Refresh failed, redirecting to login');
                     showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
                     throw new Error('Authentication failed');
                 }
             }
-            console.log(`Request to ${url} succeeded with status ${resp.status}`);
             return resp;
         } catch (e) {
             if (i === retries) {
-                console.error(`API fetch failed for ${url} after ${retries} retries:`, e);
                 showMessage('Ошибка соединения, перенаправление на страницу входа', 'danger', '/login.html');
                 throw e;
             }
-            console.log(`Retrying request to ${url} (${i + 1}/${retries})...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(r => setTimeout(r, 1000));
         }
     }
 }
 
-// Отображение имени пользователя
 async function displayUsername() {
     try {
         const resp = await apiFetch('/api/users/me');
         if (resp.ok) {
             const user = await resp.json();
-            const usernameSpan = document.getElementById('username');
-            if (usernameSpan) {
-                usernameSpan.textContent = user.name || user.username || 'Пользователь';
-            }
+            const el = document.getElementById('username');
+            if (el) el.textContent = user.name || user.username || 'Пользователь';
         }
-    } catch (e) {
-        console.error('Error fetching user:', e);
-    }
+    } catch {}
 }
 
-// Регистрация
 async function register() {
-    console.log('Register function called');
     const name = document.getElementById('name')?.value.trim();
     const username = document.getElementById('username')?.value.trim();
     const password = document.getElementById('password')?.value.trim();
-
-    if (!name || !username || !password) {
-        showMessage('Заполните все поля', 'danger');
-        return;
-    }
-    if (username.length < 3) {
-        showMessage('Имя пользователя должно быть не короче 3 символов', 'danger');
-        return;
-    }
-    if (password.length < 6) {
-        showMessage('Пароль должен быть не короче 6 символов', 'danger');
-        return;
-    }
-    if (!/^[a-zA-Zа-яА-Я\s]+$/.test(name)) {
-        showMessage('Имя должно содержать только буквы и пробелы', 'danger');
-        return;
-    }
-
-    const payload = { name, username, password };
-    console.log('Sending register request with payload:', payload);
+    if (!name || !username || !password) return showMessage('Заполните все поля', 'danger');
+    if (username.length < 3) return showMessage('Имя пользователя должно быть не короче 3 символов', 'danger');
+    if (password.length < 6) return showMessage('Пароль должен быть не короче 6 символов', 'danger');
+    if (!/^[a-zA-Zа-яА-Я\s]+$/.test(name)) return showMessage('Имя должно содержать только буквы и пробелы', 'danger');
 
     try {
         const resp = await fetch('/api/users/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ name, username, password }),
             credentials: 'include'
         });
-
-        console.log('Register response status:', resp.status);
         if (resp.ok) {
-            showMessage('Регистрация успешна! Войдите в систему.', 'success');
-            setTimeout(() => window.location.href = '/login.html', 2000);
+            showMessage('Регистрация успешна! Войдите в систему.', 'success', '/login.html');
         } else {
-            const error = await resp.text();
-            showMessage(error || 'Ошибка регистрации', 'danger');
+            showMessage(await resp.text() || 'Ошибка регистрации', 'danger');
         }
-    } catch (error) {
-        console.error('Register error:', error);
+    } catch {
         showMessage('Ошибка соединения', 'danger');
     }
 }
 
-// Вход
 async function login() {
-    console.log('Login function called');
     const username = document.getElementById('username')?.value.trim();
     const password = document.getElementById('password')?.value.trim();
-
-    if (!username || !password) {
-        showMessage('Заполните все поля', 'danger');
-        return;
-    }
-
-    const payload = { username, password };
-    console.log('Sending login request with payload:', payload);
+    if (!username || !password) return showMessage('Заполните все поля', 'danger');
 
     try {
         const resp = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ username, password }),
             credentials: 'include'
         });
-
-        console.log('Login response status:', resp.status);
         if (resp.ok) {
-            console.log('Login successful, redirecting to tracker');
             window.location.href = '/tracker.html';
         } else {
-            const error = await resp.text();
-            showMessage(error || 'Ошибка входа', 'danger');
+            showMessage(await resp.text() || 'Ошибка входа', 'danger');
         }
-    } catch (error) {
-        console.error('Login error:', error);
+    } catch {
         showMessage('Ошибка соединения', 'danger');
     }
 }
 
-// Выход
 async function logout() {
-    console.log('Logout function called');
-    try {
-        const resp = await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include'
-        });
-        console.log('Logout response status:', resp.status);
-        window.location.href = '/index.html';
-    } catch (error) {
-        console.error('Logout error:', error);
-        window.location.href = '/index.html';
-    }
+    try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); }
+    finally { window.location.href = '/index.html'; }
 }
 
-// Загрузка статусов
+// --------- Statuses ---------
 async function fetchStatuses() {
-    console.log('Fetching statuses');
     try {
         const resp = await apiFetch('/api/statuses/getAllStatuses');
-        console.log('Fetch statuses response status:', resp.status);
         if (resp.ok) {
             statusOptions = await resp.json();
-            console.log('Statuses loaded:', statusOptions);
             applySavedOrder();
+            populateStatusSelect();
         } else {
             showMessage('Ошибка загрузки статусов', 'danger');
         }
-    } catch (e) {
-        console.error('Error fetching statuses:', e);
+    } catch {
         showMessage('Ошибка соединения', 'danger');
     }
 }
 
-// Применение сохраненного порядка статусов
 function applySavedOrder() {
     const saved = localStorage.getItem(STATUS_ORDER_KEY);
-    if (!saved || !statusOptions.length) return;
+    if (!saved) return;
     try {
-        const order = JSON.parse(saved);
-        statusOptions.sort((a, b) => {
-            const ai = order.indexOf(a.id), bi = order.indexOf(b.id);
-            if (ai === -1 && bi === -1) return 0;
-            if (ai === -1) return 1;
-            if (bi === -1) return -1;
-            return ai - bi;
-        });
-    } catch (e) {
-        console.error('Failed to apply saved order:', e);
-    }
+        const order = JSON.parse(saved).filter(id => statusOptions.some(s => s.id === id));
+        statusOptions.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    } catch {}
 }
 
-// Сохранение порядка статусов
 async function saveCurrentOrder() {
-    try {
-        // Сохраняем порядок в localStorage
-        localStorage.setItem(STATUS_ORDER_KEY, JSON.stringify(statusOptions.map(s => s.id)));
-        console.log('Saved status order to localStorage:', statusOptions.map(s => s.id));
-
-        // Обновляем порядок на сервере
-        for (let i = 0; i < statusOptions.length; i++) {
-            const status = statusOptions[i];
-            const payload = { name: status.name, order: i };
-            console.log(`Updating status ${status.id} with order ${i}`);
-            const resp = await apiFetch(`/api/statuses/updateStatus/${status.id}`, {
-                method: 'PUT',
-                body: JSON.stringify(payload)
-            });
-            if (!resp.ok) {
-                console.error(`Failed to update status ${status.id}:`, resp.status);
-                showMessage(`Ошибка обновления порядка статуса ${status.name}`, 'danger');
-            }
-        }
-        console.log('Status order updated on server');
-    } catch (e) {
-        console.error('Error saving status order:', e);
-        showMessage('Ошибка сохранения порядка статусов', 'danger');
-    }
-}
-
-// Загрузка данных дня
-async function loadDayData() {
-    const date = document.getElementById('datePicker')?.value;
-    if (!date) return;
-    try {
-        console.log('Loading day data for date:', date);
-        const resp = await apiFetch(`/api/days/${date}`);
-        console.log('Load day data response status:', resp.status);
-        if (resp.ok) {
-            const entries = await resp.json();
-            renderTimeEntries(entries);
-        } else {
-            showMessage('Ошибка загрузки данных дня!', 'danger');
-        }
-    } catch (e) {
-        console.error('Error loading day data:', e);
-        showMessage('Ошибка соединения', 'danger');
-    }
-}
-
-// Обновление отработанных часов
-async function updateWorkedHours() {
-    const date = document.getElementById('datePicker')?.value;
-    if (!date) return;
-    try {
-        console.log('Updating worked hours for date:', date);
-        const resp = await apiFetch(`/api/stats/daily?date=${date}`);
-        console.log('Update worked hours response status:', resp.status);
-        if (resp.ok) {
-            const hours = await resp.json();
-            document.getElementById('workedHours').textContent = hours;
-        }
-    } catch (e) {
-        console.error('Error updating worked hours:', e);
-    }
-}
-
-// Отрисовка записей времени
-function renderTimeEntries(timeEntries) {
-    const tbody = document.getElementById('timeEntriesTable');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    for (let hour = 0; hour < 24; hour++) {
-        const entry = timeEntries.find(e => e.hour === hour) || { hour, worked: false, comment: '', status: null };
-        const row = document.createElement('tr');
-
-        const select = document.createElement('select');
-        select.className = 'form-select';
-        select.dataset.hour = hour;
-        select.append(new Option('—', ''));
-        statusOptions.forEach(s => {
-            const opt = new Option(s.name, s.name);
-            if (entry.status && entry.status.name === s.name) opt.selected = true;
-            select.append(opt);
-        });
-
-        row.innerHTML = `
-            <td>${hour}:00</td>
-            <td><input type="checkbox" ${entry.worked ? 'checked' : ''} data-hour="${hour}"></td>
-            <td><input type="text" class="form-control" value="${entry.comment}" data-hour="${hour}"></td>
-            <td></td>
-            <td><button class="btn btn-success button" onclick="saveTimeEntry(${hour})">💾</button></td>
-        `;
-        row.children[3].appendChild(select);
-        tbody.appendChild(row);
-    }
-}
-
-// Сохранение записи времени
-async function saveTimeEntry(hour) {
-    const date = document.getElementById('datePicker')?.value;
-    if (!date) return;
-    const worked = document.querySelector(`input[type="checkbox"][data-hour="${hour}"]`)?.checked;
-    const comment = document.querySelector(`input[type="text"][data-hour="${hour}"]`)?.value;
-    const statusName = document.querySelector(`select[data-hour="${hour}"]`)?.value;
-
-    const payload = { hour, worked, comment, status: statusName ? { name: statusName } : null };
-    console.log('Saving time entry with payload:', payload);
-
-    try {
-        const resp = await apiFetch(`/api/days/${date}`, {
+    localStorage.setItem(STATUS_ORDER_KEY, JSON.stringify(statusOptions.map(s => s.id)));
+    for (let i = 0; i < statusOptions.length; i++) {
+        const payload = { name: statusOptions[i].name, order: i };
+        await apiFetch(`/api/statuses/updateStatus/${statusOptions[i].id}`, {
             method: 'PUT',
             body: JSON.stringify(payload)
         });
-        console.log('Save time entry response status:', resp.status);
-        if (resp.ok) {
-            showMessage(`Час ${hour}:00 сохранён!`, 'success');
-            await updateWorkedHours();
-        } else {
-            showMessage('Ошибка при сохранении', 'danger');
-        }
-    } catch (e) {
-        console.error('Error saving time entry:', e);
-        showMessage('Ошибка соединения', 'danger');
     }
 }
 
-// Отображение статусов
+function populateStatusSelect() {
+    const select = document.getElementById('status');
+    if (!select) return;
+    select.innerHTML = '<option value="">—</option>' + statusOptions.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+}
+
 function displayStatuses() {
     const tbody = document.getElementById('statusTableBody');
     if (!tbody) return;
@@ -414,13 +195,14 @@ function displayStatuses() {
         const row = document.createElement('tr');
         row.draggable = true;
         row.dataset.index = idx;
+
         row.innerHTML = `
             <td class="drag-handle">☰</td>
             <td>${s.id}</td>
-            <td><input type="text" class="form-control" value="${s.name}" data-id="${s.id}"></td>
+            <td><input type="text" class="form-control" value="${escapeHtml(s.name)}" data-id="${s.id}"></td>
             <td>
-                <button class="btn btn-sm btn-success button" onclick="updateStatus(${s.id})">💾</button>
-                <button class="btn btn-sm btn-danger button" onclick="deleteStatus(${s.id})">🗑️</button>
+                <button class="btn btn-sm btn-success" onclick="updateStatus(${s.id})">💾</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteStatus(${s.id})">🗑️</button>
             </td>
         `;
 
@@ -441,152 +223,298 @@ function displayStatuses() {
     });
 }
 
-// Добавление статуса
 async function addStatus() {
     const name = document.getElementById('newStatusName')?.value.trim();
     if (!name) return;
-    const payload = { name };
-    console.log('Adding status with payload:', payload);
-
-    try {
-        const resp = await apiFetch('/api/statuses/createStatus', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        console.log('Add status response status:', resp.status);
-        if (resp.ok) {
-            document.getElementById('newStatusName').value = '';
-            await fetchStatuses();
-            displayStatuses();
-            await loadDayData();
-            await updateWorkedHours();
-        } else {
-            showMessage('Ошибка добавления', 'danger');
-        }
-    } catch (e) {
-        console.error('Error adding status:', e);
-        showMessage('Ошибка соединения', 'danger');
+    const resp = await apiFetch('/api/statuses/createStatus', {
+        method: 'POST',
+        body: JSON.stringify({ name })
+    });
+    if (resp.ok) {
+        document.getElementById('newStatusName').value = '';
+        await fetchStatuses();
+        displayStatuses();
+        await loadDayData();
+        await updateWorkedHours();
+    } else {
+        showMessage('Ошибка добавления', 'danger');
     }
 }
 
-// Обновление статуса
 async function updateStatus(id) {
     const name = document.querySelector(`input[data-id="${id}"]`)?.value.trim();
     if (!name) return;
-    const payload = { name };
-    console.log('Updating status with payload:', payload);
-
-    try {
-        const resp = await apiFetch(`/api/statuses/updateStatus/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-        });
-        console.log('Update status response status:', resp.status);
-        if (resp.ok) {
-            await fetchStatuses();
-            displayStatuses();
-            await loadDayData();
-            await updateWorkedHours();
-        } else {
-            showMessage('Ошибка обновления', 'danger');
-        }
-    } catch (e) {
-        console.error('Error updating status:', e);
-        showMessage('Ошибка соединения', 'danger');
+    const resp = await apiFetch(`/api/statuses/updateStatus/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name })
+    });
+    if (resp.ok) {
+        await fetchStatuses();
+        displayStatuses();
+        await loadDayData();
+        await updateWorkedHours();
+    } else {
+        showMessage('Ошибка обновления', 'danger');
     }
 }
 
-// Удаление статуса
 async function deleteStatus(id) {
-    console.log('Deleting status with id:', id);
-
-    try {
-        const resp = await apiFetch(`/api/statuses/deleteStatus/${id}`, {
-            method: 'DELETE'
-        });
-        console.log('Delete status response status:', resp.status);
-        if (resp.ok) {
-            await fetchStatuses();
-            displayStatuses();
-            await loadDayData();
-            await updateWorkedHours();
-        } else {
-            showMessage('Ошибка удаления', 'danger');
-        }
-    } catch (e) {
-        console.error('Error deleting status:', e);
-        showMessage('Ошибка соединения', 'danger');
+    const resp = await apiFetch(`/api/statuses/deleteStatus/${id}`, { method: 'DELETE' });
+    if (resp.ok) {
+        await fetchStatuses();
+        displayStatuses();
+        await loadDayData();
+        await updateWorkedHours();
+    } else {
+        showMessage('Ошибка удаления', 'danger');
     }
 }
 
-// Превентивное обновление токена
+// --------- Hour-based tracker ---------
+async function loadDayData() {
+    const date = document.getElementById('datePicker')?.value;
+    if (!date) return;
+    try {
+        const resp = await apiFetch(`/api/days/${date}`);
+        const entries = resp.ok ? await resp.json() : [];
+        renderHourlyEntries(entries);
+    } catch {
+        renderHourlyEntries([]);
+    }
+}
+
+function renderHourlyEntries(entries) {
+    const table = document.getElementById('timeEntriesTable');
+    if (!table) return;
+    table.innerHTML = '';
+    for (let hour = 0; hour < 24; hour++) {
+        const entry = entries.find(e => e.hour === hour && e.minute === 0) || {};
+        const comment = escapeHtml(entry.comment || '');
+        const statusName = entry.status ? entry.status.name : '';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${hour}:00</td>
+            <td><input type="checkbox" data-hour="${hour}" ${entry.worked ? 'checked' : ''}></td>
+            <td><input type="text" data-hour="${hour}" value="${comment}"></td>
+            <td>
+                <select data-hour="${hour}">
+                    <option value=""></option>
+                    ${statusOptions.map(s => `<option value="${escapeHtml(s.name)}" ${statusName === s.name ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+                </select>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-success" onclick="saveTimeEntry(${hour})">💾</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteTimeEntry(${hour})">🗑️</button>
+            </td>
+        `;
+        table.appendChild(row);
+    }
+}
+
+async function saveTimeEntry(hour) {
+    const date = document.getElementById('datePicker')?.value;
+    if (!date) return;
+    const worked = document.querySelector(`input[type="checkbox"][data-hour="${hour}"]`).checked;
+    const comment = document.querySelector(`input[type="text"][data-hour="${hour}"]`).value;
+    const statusName = document.querySelector(`select[data-hour="${hour}"]`).value;
+    const payload = { hour, minute: 0, worked, comment, status: statusName ? { name: statusName } : null };
+    const resp = await apiFetch(`/api/days/${date}`, { method: 'PUT', body: JSON.stringify(payload) });
+    if (resp.ok) {
+        showMessage(`Час ${hour}:00 сохранён!`, 'success');
+        await updateWorkedHours();
+    } else {
+        showMessage('Ошибка при сохранении', 'danger');
+    }
+}
+
+async function deleteTimeEntry(hour, minute = 0) {
+    const date = document.getElementById('datePicker')?.value;
+    if (!date) return;
+    const resp = await apiFetch(`/api/days/${date}/${hour}/${minute}`, { method: 'DELETE' });
+    if (resp.ok) {
+        showMessage('Запись удалена!', 'success');
+        await loadDayData();
+        await updateWorkedHours();
+    } else {
+        showMessage('Ошибка при удалении', 'danger');
+    }
+}
+
+// --------- Minute-based tracker ---------
+async function loadNewDayData() {
+    const date = document.getElementById('datePicker')?.value;
+    if (!date) return;
+    try {
+        const resp = await apiFetch(`/api/days/${date}`);
+        const entries = resp.ok ? await resp.json() : [];
+        renderNewTimeEntries(entries);
+    } catch {
+        renderNewTimeEntries([]);
+    }
+}
+
+function parseInterval(comment) {
+    if (!comment) return { interval: '', text: '' };
+    const m = comment.match(/^(\d{2}:\d{2}-\d{2}:\d{2})(?:\s*:\s*(.*))?$/);
+    if (m) return { interval: m[1], text: m[2] || '' };
+    return { interval: '', text: comment };
+}
+
+function renderNewTimeEntries(entries) {
+    const list = document.getElementById('timeEntriesList');
+    if (!list) return;
+    list.innerHTML = '';
+    entries.sort((a,b)=>(a.hour*60+a.minute)-(b.hour*60+b.minute))
+        .forEach(entry => {
+            const { interval, text } = parseInterval(entry.comment);
+            const card = document.createElement('div');
+            card.className = 'col fade-in compact-card';
+            card.innerHTML = `
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">${interval || `${pad(entry.hour)}:${pad(entry.minute)}-${pad(entry.hour+1)}:${pad(entry.minute)}`}</h5>
+                        <p class="card-text">${escapeHtml(text)}</p>
+                        <p class="card-text"><small class="text-muted">Статус: ${entry.status ? escapeHtml(entry.status.name) : '—'}</small></p>
+                        <p class="card-text"><small class="text-muted">Отработано: ${entry.worked ? 'Да' : 'Нет'}</small></p>
+                    </div>
+                    <div class="card-footer d-flex justify-content-end">
+                        <button class="btn btn-primary btn-sm me-2"
+                            data-hour="${entry.hour}"
+                            data-minute="${entry.minute}"
+                            data-interval="${encodeURIComponent(interval)}"
+                            data-worked="${entry.worked}"
+                            data-comment="${encodeURIComponent(text)}"
+                            data-status="${entry.status ? encodeURIComponent(entry.status.name) : ''}"
+                            onclick="editTimeEntry(this)">Редактировать</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTimeEntry(${entry.hour}, ${entry.minute})">Удалить</button>
+                    </div>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+}
+
+async function addTimeEntry() {
+    const date = document.getElementById('datePicker')?.value;
+    const startTime = document.getElementById('startTime')?.value;
+    const endTime = document.getElementById('endTime')?.value;
+    const worked = document.getElementById('worked')?.checked;
+    const comment = document.getElementById('comment')?.value.trim();
+    const statusName = document.getElementById('status')?.value;
+
+    if (!date || !startTime || !endTime) return showMessage('Заполните дату и время', 'danger');
+
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+        return showMessage('Время окончания должно быть позже начала', 'danger');
+    }
+
+    const interval = `${startTime}-${endTime}`;
+    const commentPayload = comment ? `${interval}: ${comment}` : interval;
+    const payload = {
+        hour: startHour,
+        minute: startMinute,
+        worked,
+        comment: commentPayload,
+        status: statusName ? { name: statusName } : null
+    };
+
+    const resp = await apiFetch(`/api/days/${date}`, { method: 'PUT', body: JSON.stringify(payload) });
+    if (resp.ok) {
+        if (editingEntry && (editingEntry.hour !== startHour || editingEntry.minute !== startMinute)) {
+            await apiFetch(`/api/days/${date}/${editingEntry.hour}/${editingEntry.minute}`, { method: 'DELETE' }).catch(()=>{});
+        }
+        editingEntry = null;
+        document.getElementById('startTime').value = '';
+        document.getElementById('endTime').value = '';
+        document.getElementById('worked').checked = false;
+        document.getElementById('comment').value = '';
+        document.getElementById('status').value = '';
+        await loadNewDayData();
+        await updateWorkedHours();
+        showMessage('Запись сохранена!', 'success');
+    } else {
+        showMessage('Ошибка при сохранении', 'danger');
+    }
+}
+function editTimeEntry(btn) {
+    const { hour, minute, interval, worked, comment, status } = btn.dataset;
+    document.getElementById('startTime').value = decodeURIComponent(interval).split('-')[0];
+    document.getElementById('endTime').value = decodeURIComponent(interval).split('-')[1];
+    document.getElementById('worked').checked = worked === 'true';
+    document.getElementById('comment').value = decodeURIComponent(comment || '');
+    document.getElementById('status').value = decodeURIComponent(status || '');
+    editingEntry = { hour: parseInt(hour, 10), minute: parseInt(minute, 10) };
+}
+
+function computeEntryMinutes(entry) {
+    const { interval } = parseInterval(entry.comment);
+    if (interval) {
+        const [s, e] = interval.split('-');
+        const [sh, sm] = s.split(':').map(Number);
+        const [eh, em] = e.split(':').map(Number);
+        return (eh * 60 + em) - (sh * 60 + sm);
+    }
+    return entry.worked ? 60 : 0;
+}
+
+async function updateWorkedHours() {
+    const date = document.getElementById('datePicker')?.value;
+    if (!date) return;
+    try {
+        const resp = await apiFetch(`/api/days/${date}`);
+        const entries = resp.ok ? await resp.json() : [];
+        const totalMinutes = entries.reduce((sum, e) => sum + computeEntryMinutes(e), 0);
+        document.getElementById('workedHours').textContent = (totalMinutes / 60).toFixed(2);
+    } catch {
+        document.getElementById('workedHours').textContent = '0';
+    }
+}
+
+// --------- Common ---------
 function startTokenRefreshTimer() {
     setInterval(async () => {
-        if (await isAuthenticated()) {
-            await refreshAccessToken();
-        }
-    }, 55 * 60 * 1000); // Каждые 55 минут
+        if (await isAuthenticated()) await refreshAccessToken();
+    }, 55 * 60 * 1000);
 }
 
-// Инициализация
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOM loaded, current path:', window.location.pathname);
+    const path = window.location.pathname;
     startTokenRefreshTimer();
 
-    if (window.location.pathname.endsWith('tracker.html')) {
-        const authenticated = await isAuthenticated();
-        if (!authenticated) {
-            console.log('Not authenticated, attempting to refresh token');
-            const refreshed = await refreshAccessToken();
-            if (!refreshed) {
-                console.log('Refresh failed, redirecting to login');
-                showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
-                return;
-            }
+    if (path.endsWith('tracker.html')) {
+        if (!(await isAuthenticated()) && !(await refreshAccessToken())) {
+            return showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
         }
         await fetchStatuses();
-        applySavedOrder();
         await displayUsername();
-
-        const today = new Date().toISOString().split('T')[0];
         const datePicker = document.getElementById('datePicker');
         if (datePicker) {
+            const today = new Date().toISOString().split('T')[0];
             datePicker.value = today;
-            datePicker.addEventListener('change', async () => {
-                console.log('Date picker changed to:', datePicker.value);
-                await loadDayData();
-                await updateWorkedHours();
-            });
-
+            datePicker.addEventListener('change', async () => { await loadDayData(); await updateWorkedHours(); });
             await loadDayData();
             await updateWorkedHours();
-            displayStatuses();
         }
-    } else if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/') {
-        const authenticated = await isAuthenticated();
-        if (authenticated) {
-            console.log('Authenticated, redirecting to tracker');
-            window.location.href = '/tracker.html';
-        } else {
-            console.log('Not authenticated, attempting to refresh token');
-            const refreshed = await refreshAccessToken();
-            if (refreshed) {
-                console.log('Token refreshed, redirecting to tracker');
-                window.location.href = '/tracker.html';
-            }
+        displayStatuses();
+    } else if (path.endsWith('new-tracker.html')) {
+        if (!(await isAuthenticated()) && !(await refreshAccessToken())) {
+            return showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
         }
-    } else if (window.location.pathname.endsWith('login.html') || window.location.pathname.endsWith('register.html')) {
-        const authenticated = await isAuthenticated();
-        if (authenticated) {
-            console.log('Authenticated, redirecting to tracker');
-            window.location.href = '/tracker.html';
-        } else {
-            console.log('Not authenticated, attempting to refresh token');
-            const refreshed = await refreshAccessToken();
-            if (refreshed) {
-                console.log('Token refreshed, redirecting to tracker');
-                window.location.href = '/tracker.html';
-            }
+        await fetchStatuses();
+        await displayUsername();
+        const datePicker = document.getElementById('datePicker');
+        if (datePicker) {
+            const today = new Date().toISOString().split('T')[0];
+            datePicker.value = today;
+            datePicker.addEventListener('change', async () => { await loadNewDayData(); await updateWorkedHours(); });
+            await loadNewDayData();
+            await updateWorkedHours();
         }
+    } else if (path.endsWith('index.html') || path === '/') {
+        if (await isAuthenticated()) window.location.href = '/tracker.html';
+    } else if (path.endsWith('login.html') || path.endsWith('register.html')) {
+        if (await isAuthenticated()) window.location.href = '/tracker.html';
     }
 });

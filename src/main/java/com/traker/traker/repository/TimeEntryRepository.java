@@ -12,9 +12,10 @@ import java.util.Optional;
 
 @Repository
 public interface TimeEntryRepository extends DefaultRepository<TimeEntry, Long> {
-    Optional<TimeEntry> findByDayLogAndHour(DayLog dayLog, int hour);
-    List<TimeEntry> findByDayLog(DayLog dayLog);
+      Optional<TimeEntry> findByDayLogAndHour(DayLog dayLog, int hour);
+      List<TimeEntry> findByDayLog(DayLog dayLog);
 
-    List<TimeEntry> findByDayLogAndUser(DayLog dayLog, User user);
-    Optional<TimeEntry> findByDayLogAndHourAndUser(DayLog dayLog, int hour, User user);
+      List<TimeEntry> findByDayLogAndUser(DayLog dayLog, User user);
+      Optional<TimeEntry> findByDayLogAndHourAndUser(DayLog dayLog, int hour, User user);
+      Optional<TimeEntry> findByDayLogAndHourAndMinuteAndUser(DayLog dayLog, int hour, int minute, User user);
 }

@@ -64,9 +64,16 @@ databaseChangeLog:
           - sqlFile:
               path: db/changelog/update/update-time_emtry-AddUsers.sql
 
-  - changeSet:
+    - changeSet:
         id: "10"
         author: "am"
         changes:
           - sqlFile:
               path: db/changelog/update/update-status-AddUsers.sql
+
+    - changeSet:
+        id: "11"
+        author: "am"
+        changes:
+          - sqlFile:
+              path: db/changelog/update/update-time_entry-add-minute.sql
