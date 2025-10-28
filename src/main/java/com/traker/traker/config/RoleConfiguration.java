@@ -47,6 +47,12 @@ public class RoleConfiguration {
                         "/api/days/**"
                 ).hasAnyRole("USER", "MODERATOR", "ADMIN")
 
+                // Эндпоинты для управления тратами — доступ USER и выше
+                .requestMatchers(
+                        "/api/expense-categories/**",
+                        "/api/expenses/**"
+                ).hasAnyRole("USER", "MODERATOR", "ADMIN")
+
                 // Остальные запросы требуют авторизации
                 .anyRequest().authenticated()
         );

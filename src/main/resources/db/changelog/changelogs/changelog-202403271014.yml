@@ -88,3 +88,16 @@ databaseChangeLog:
                   defaultValueNumeric: 0
                   constraints:
                     nullable: false
+  - changeSet:
+      id: "12"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-expense_category.sql
+
+  - changeSet:
+      id: "13"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-expense_record.sql
