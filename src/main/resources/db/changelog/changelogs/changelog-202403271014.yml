@@ -28,52 +28,63 @@ databaseChangeLog:
             path: db/changelog/insert/insert-roles.sql
 
   - changeSet:
-        id: "5"
-        author: "am"
-        changes:
-          - sqlFile:
-                path: db/changelog/create/create-day_log.sql
+      id: "5"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-day_log.sql
 
   - changeSet:
-        id: "6"
-        author: "am"
-        changes:
-            - sqlFile:
-                path: db/changelog/create/create-time_entry.sql
+      id: "6"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-time_entry.sql
 
   - changeSet:
-          id: "7"
-          author: "am"
-          changes:
-              - sqlFile:
-                    path: db/changelog/create/create-status.sql
-  - changeSet:
-          id: "8"
-          author: "am"
-          changes:
-              - sqlFile:
-                    path: db/changelog/update/update-time_entry.sql
-
-
-
+      id: "7"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-status.sql
 
   - changeSet:
-        id: "9"
-        author: "am"
-        changes:
-          - sqlFile:
-              path: db/changelog/update/update-time_emtry-AddUsers.sql
+      id: "8"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-time_entry.sql
 
-    - changeSet:
-        id: "10"
-        author: "am"
-        changes:
-          - sqlFile:
-              path: db/changelog/update/update-status-AddUsers.sql
+  - changeSet:
+      id: "9"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-time_entry-AddUsers.sql
 
-    - changeSet:
-        id: "11"
-        author: "am"
-        changes:
-          - sqlFile:
-              path: db/changelog/update/update-time_entry-add-minute.sql
+  - changeSet:
+      id: "10"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-status-AddUsers.sql
+
+  - changeSet:
+      id: 11
+      author: am
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: time_entry
+            columnName: minute
+      changes:
+        - addColumn:
+            tableName: time_entry
+            columns:
+              - column:
+                  name: minute
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
