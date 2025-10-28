@@ -1,9 +1,14 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DATABASE_URL}:5432/${DATABASE_NAME}
-    username: ${DATABASE_USERNAME}
-    password: ${DATABASE_PASSWORD}
+    url: jdbc:postgresql://${DATABASE_URL:localhost}:${DATABASE_PORT:5429}/${DATABASE_NAME:traker}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+
+
+  docker:
+    compose:
+      enabled: false
 
   server:
     address: 0.0.0.0
