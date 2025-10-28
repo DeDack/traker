@@ -49,6 +49,8 @@ public class DayLogService {
         User currentUser = getCurrentUser();
         Optional<DayLog> dayLog = dayLogRepository.findByDate(localDate);
         return dayLog.map(dl -> timeEntryRepository.findByDayLogAndUser(dl, currentUser).stream()
+                        .sorted(java.util.Comparator.comparingInt(TimeEntry::getHour)
+                                .thenComparingInt(TimeEntry::getMinute))
                         .map(timeEntryMapper::toDto)
                         .collect(Collectors.toList()))
                 .orElseGet(List::of);
@@ -80,12 +82,13 @@ public class DayLogService {
                 });
 
         int hour = timeEntryDto.getHour();
-        logger.info("Час из объекта timeEntryDto: {}", hour);
+        int minute = timeEntryDto.getMinute();
+        logger.info("Время из объекта timeEntryDto: {}:{}", hour, minute);
 
-        TimeEntry timeEntry = timeEntryRepository.findByDayLogAndHourAndUser(dayLog, hour, currentUser)
+        TimeEntry timeEntry = timeEntryRepository.findByDayLogAndHourAndMinuteAndUser(dayLog, hour, minute, currentUser)
                 .orElseGet(() -> {
-                    logger.info("TimeEntry не найден для DayLog: {}, часа: {} и пользователя: {}. Создание нового TimeEntry.", dayLog, hour, currentUser.getUsername());
-                    return createNewTimeEntry(dayLog, hour, currentUser);
+                    logger.info("TimeEntry не найден для DayLog: {}, времени: {}:{} и пользователя: {}. Создание нового TimeEntry.", dayLog, hour, minute, currentUser.getUsername());
+                    return createNewTimeEntry(dayLog, hour, minute, currentUser);
                 });
 
         Status status;
@@ -144,17 +147,19 @@ public class DayLogService {
     }
 
     /**
-     * Создает новый объект TimeEntry для заданного DayLog, часа и пользователя.
+     * Создает новый объект TimeEntry для заданного DayLog, времени и пользователя.
      *
      * @param dayLog объект DayLog
      * @param hour час записи времени
+     * @param minute минута записи времени
      * @param user текущий пользователь
      * @return новый объект TimeEntry
      */
-    private TimeEntry createNewTimeEntry(DayLog dayLog, int hour, User user) {
+    private TimeEntry createNewTimeEntry(DayLog dayLog, int hour, int minute, User user) {
         TimeEntry newTimeEntry = new TimeEntry();
         newTimeEntry.setDayLog(dayLog);
         newTimeEntry.setHour(hour);
+        newTimeEntry.setMinute(minute);
         newTimeEntry.setUser(user);
         return newTimeEntry;
     }

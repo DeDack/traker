@@ -1,0 +1,2 @@
+ALTER TABLE time_entry
+    ADD COLUMN minute INTEGER DEFAULT 0 NOT NULL;

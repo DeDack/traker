@@ -29,6 +29,9 @@ public class TimeEntry {
     private int hour;
 
     @Column(nullable = false)
+    private int minute;
+
+    @Column(nullable = false)
     private boolean worked;
 
     @Column
