@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Финансовый дашборд</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f5f7fb;
+            min-height: 100vh;
+        }
+        .section-card {
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            background: #ffffff;
+            margin-bottom: 24px;
+            padding: 24px;
+        }
+        .section-title {
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        .pill-button {
+            border-radius: 999px;
+        }
+        .chart-card canvas {
+            max-height: 340px;
+        }
+        .table thead {
+            background-color: #1f6feb;
+            color: white;
+        }
+        .default-badge {
+            background-color: #e2eaff;
+            color: #1f6feb;
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div id="loader" class="spinner-border text-primary position-fixed top-50 start-50" style="display:none"></div>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">Финансы и бюджет</h1>
+            <p class="text-muted mb-0">Планируйте бюджет, управляйте доходами и расходами, анализируйте динамику как в мобильном банке</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary pill-button" onclick="window.location.href='/tracker.html'">⏱ Трекер времени</button>
+            <button class="btn btn-outline-secondary pill-button" onclick="window.location.href='/new-tracker.html'">📋 Карточки дня</button>
+            <button class="btn btn-primary pill-button" onclick="logout()">Выйти</button>
+        </div>
+    </div>
+
+    <div class="alert" id="message"></div>
+
+    <div class="section-card">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
+            <div>
+                <h2 class="section-title">Категории</h2>
+                <p class="text-muted mb-0">Создайте категории для расходов и доходов, чтобы удобно сегментировать аналитику</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary pill-button" id="refreshCategoriesBtn">Обновить списки</button>
+            </div>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Категории расходов</h5>
+                        <form id="expenseCategoryForm" class="row g-2 mb-3">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" id="expenseCategoryName" placeholder="Название" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" id="expenseCategoryDescription" placeholder="Описание">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-primary">Добавить</button>
+                            </div>
+                        </form>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Описание</th>
+                                    <th class="text-end">Действия</th>
+                                </tr>
+                                </thead>
+                                <tbody id="expenseCategoryTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Категории доходов</h5>
+                        <form id="incomeCategoryForm" class="row g-2 mb-3">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" id="incomeCategoryName" placeholder="Название" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" id="incomeCategoryDescription" placeholder="Описание">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-success">Добавить</button>
+                            </div>
+                        </form>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Описание</th>
+                                    <th class="text-end">Действия</th>
+                                </tr>
+                                </thead>
+                                <tbody id="incomeCategoryTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
+            <div>
+                <h2 class="section-title">Массовое создание записей</h2>
+                <p class="text-muted mb-0">Создавайте сразу десятки операций, задавая общий месяц и быстро копируя данные</p>
+            </div>
+            <div class="btn-group" role="group">
+                <button class="btn btn-outline-primary active" id="toggleExpenses">Расходы</button>
+                <button class="btn btn-outline-success" id="toggleIncomes">Доходы</button>
+            </div>
+        </div>
+        <div id="expenseBatchSection" class="batch-section">
+            <div class="d-flex flex-wrap gap-3 mb-3">
+                <div>
+                    <label for="expenseDefaultMonth" class="form-label mb-1">Общий месяц</label>
+                    <input type="month" id="expenseDefaultMonth" class="form-control">
+                </div>
+                <div class="align-self-end">
+                    <button class="btn btn-outline-primary pill-button" id="applyExpenseMonth">Проставить месяц всем</button>
+                </div>
+            </div>
+            <div class="table-responsive mb-3">
+                <table class="table table-hover align-middle">
+                    <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Описание</th>
+                        <th>Сумма</th>
+                        <th>Категория</th>
+                        <th>Дата</th>
+                        <th>Месяц</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="expenseBatchTable"></tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between flex-wrap gap-2">
+                <button class="btn btn-outline-secondary pill-button" id="addExpenseRow">Добавить строку</button>
+                <button class="btn btn-primary pill-button" id="saveExpenseBatch">Сохранить все расходы</button>
+            </div>
+        </div>
+        <div id="incomeBatchSection" class="batch-section" style="display:none">
+            <div class="d-flex flex-wrap gap-3 mb-3">
+                <div>
+                    <label for="incomeDefaultMonth" class="form-label mb-1">Общий месяц</label>
+                    <input type="month" id="incomeDefaultMonth" class="form-control">
+                </div>
+                <div class="align-self-end">
+                    <button class="btn btn-outline-success pill-button" id="applyIncomeMonth">Проставить месяц всем</button>
+                </div>
+            </div>
+            <div class="table-responsive mb-3">
+                <table class="table table-hover align-middle">
+                    <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Описание</th>
+                        <th>Сумма</th>
+                        <th>Категория</th>
+                        <th>Дата</th>
+                        <th>Месяц</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="incomeBatchTable"></tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between flex-wrap gap-2">
+                <button class="btn btn-outline-secondary pill-button" id="addIncomeRow">Добавить строку</button>
+                <button class="btn btn-success pill-button" id="saveIncomeBatch">Сохранить все доходы</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
+            <div>
+                <h2 class="section-title">Бюджет месяца</h2>
+                <p class="text-muted mb-0">Задайте цели по доходам, расходам и накоплениям — остаток посчитается автоматически</p>
+            </div>
+            <div class="d-flex gap-2">
+                <input type="month" class="form-control" id="budgetMonth">
+                <button class="btn btn-outline-primary pill-button" id="loadBudget">Загрузить</button>
+            </div>
+        </div>
+        <form id="budgetForm" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">План доходов</label>
+                <input type="number" min="0" step="0.01" class="form-control" id="plannedIncome" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">План расходов</label>
+                <input type="number" min="0" step="0.01" class="form-control" id="plannedExpense" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Цель накоплений</label>
+                <input type="number" min="0" step="0.01" class="form-control" id="savingsGoal" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Заметка</label>
+                <input type="text" class="form-control" id="budgetNotes" placeholder="Комментарий">
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary pill-button">Сохранить бюджет</button>
+            </div>
+        </form>
+        <div class="row g-4 mt-2" id="budgetSummaryCards"></div>
+    </div>
+
+    <div class="section-card">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
+            <div>
+                <h2 class="section-title">Аналитика и диаграммы</h2>
+                <p class="text-muted mb-0">Выбирайте месяц или интервал и смотрите визуализации по категориям и динамике</p>
+            </div>
+            <form id="analyticsFilters" class="d-flex flex-wrap gap-2">
+                <input type="date" class="form-control" id="filterFrom" placeholder="С даты">
+                <input type="date" class="form-control" id="filterTo" placeholder="По дату">
+                <input type="month" class="form-control" id="filterMonth" placeholder="Месяц">
+                <button type="submit" class="btn btn-outline-primary pill-button">Обновить</button>
+            </form>
+        </div>
+        <div class="row g-3 mb-3" id="dashboardSummary"></div>
+        <div class="row g-4">
+            <div class="col-xl-4">
+                <div class="card h-100 chart-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Расходы по категориям</h5>
+                        <canvas id="expenseByCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="card h-100 chart-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Доходы по категориям</h5>
+                        <canvas id="incomeByCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="card h-100 chart-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Баланс по месяцам</h5>
+                        <canvas id="cashFlowChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mt-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <h5 class="card-title mb-0">Детализация по категориям</h5>
+                    <div id="categoryToggleContainer" class="d-flex flex-wrap gap-2"></div>
+                </div>
+                <canvas id="categoryTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="scripts.js"></script>
+<script src="finance.js"></script>
+</body>
+</html>

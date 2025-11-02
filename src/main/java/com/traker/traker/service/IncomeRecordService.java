@@ -1,16 +1,16 @@
 package com.traker.traker.service;
 
-import com.traker.traker.dto.expense.ExpenseBatchCreateRequestDto;
-import com.traker.traker.dto.expense.ExpenseRecordRequestDto;
-import com.traker.traker.dto.expense.ExpenseRecordResponseDto;
-import com.traker.traker.dto.expense.ExpenseSummaryDto;
-import com.traker.traker.entity.ExpenseCategory;
-import com.traker.traker.entity.ExpenseRecord;
+import com.traker.traker.dto.income.IncomeBatchCreateRequestDto;
+import com.traker.traker.dto.income.IncomeRecordRequestDto;
+import com.traker.traker.dto.income.IncomeRecordResponseDto;
+import com.traker.traker.dto.income.IncomeSummaryDto;
+import com.traker.traker.entity.IncomeCategory;
+import com.traker.traker.entity.IncomeRecord;
 import com.traker.traker.entity.User;
-import com.traker.traker.exception.ExpenseCategoryNotFoundException;
-import com.traker.traker.mapper.ExpenseRecordMapper;
-import com.traker.traker.repository.ExpenseCategoryRepository;
-import com.traker.traker.repository.ExpenseRecordRepository;
+import com.traker.traker.exception.IncomeCategoryNotFoundException;
+import com.traker.traker.mapper.IncomeRecordMapper;
+import com.traker.traker.repository.IncomeCategoryRepository;
+import com.traker.traker.repository.IncomeRecordRepository;
 import com.traker.traker.repository.UserRepository;
 import com.traker.traker.repository.projection.CategoryAmountView;
 import com.traker.traker.repository.projection.CategoryPeriodAmountView;
@@ -40,138 +40,138 @@ import static com.traker.traker.utils.FinanceUtils.parseOptionalPeriod;
 
 @Service
 @RequiredArgsConstructor
-public class ExpenseRecordService {
+public class IncomeRecordService {
 
-    private final ExpenseRecordRepository expenseRecordRepository;
-    private final ExpenseCategoryRepository expenseCategoryRepository;
-    private final ExpenseRecordMapper expenseRecordMapper;
+    private final IncomeRecordRepository incomeRecordRepository;
+    private final IncomeCategoryRepository incomeCategoryRepository;
+    private final IncomeRecordMapper incomeRecordMapper;
     private final UserRepository userRepository;
 
     @Transactional
-    public List<ExpenseRecordResponseDto> createBatch(ExpenseBatchCreateRequestDto request) {
+    public List<IncomeRecordResponseDto> createBatch(IncomeBatchCreateRequestDto request) {
         User currentUser = getCurrentUser();
         YearMonth defaultPeriod = parseOptionalPeriod(request.getDefaultPeriod());
 
-        List<ExpenseRecord> records = request.getExpenses().stream()
+        List<IncomeRecord> records = request.getIncomes().stream()
                 .map(dto -> mapToEntity(dto, defaultPeriod, currentUser))
                 .collect(Collectors.toList());
 
-        List<ExpenseRecord> saved = expenseRecordRepository.saveAll(records);
-        return expenseRecordMapper.toDtoList(saved);
+        List<IncomeRecord> saved = incomeRecordRepository.saveAll(records);
+        return incomeRecordMapper.toDtoList(saved);
     }
 
     @Transactional(readOnly = true)
-    public List<ExpenseRecordResponseDto> getExpenses(String fromDate, String toDate, String month) {
+    public List<IncomeRecordResponseDto> getIncomes(String fromDate, String toDate, String month) {
         FinanceFilter filter = buildFilter(fromDate, toDate, month);
         User currentUser = getCurrentUser();
-        List<ExpenseRecord> records = expenseRecordRepository.findByUserAndFilter(
+        List<IncomeRecord> records = incomeRecordRepository.findByUserAndFilter(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
                 filter.toPeriod());
-        return expenseRecordMapper.toDtoList(records);
+        return incomeRecordMapper.toDtoList(records);
     }
 
     @Transactional(readOnly = true)
-    public ExpenseSummaryDto getSummary(String fromDate, String toDate, String month) {
+    public IncomeSummaryDto getSummary(String fromDate, String toDate, String month) {
         FinanceFilter filter = buildFilter(fromDate, toDate, month);
         User currentUser = getCurrentUser();
 
-        List<CategoryAmountView> totalsByCategory = expenseRecordRepository.sumByCategory(
+        List<CategoryAmountView> totalsByCategory = incomeRecordRepository.sumByCategory(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
                 filter.toPeriod());
 
-        List<PeriodAmountView> totalsByPeriod = expenseRecordRepository.sumByPeriod(
+        List<PeriodAmountView> totalsByPeriod = incomeRecordRepository.sumByPeriod(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
                 filter.toPeriod());
 
-        List<CategoryPeriodAmountView> categoryPeriodTotals = expenseRecordRepository.sumByCategoryAndPeriod(
+        List<CategoryPeriodAmountView> categoryPeriodTotals = incomeRecordRepository.sumByCategoryAndPeriod(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
                 filter.toPeriod());
 
-        ExpenseSummaryDto summaryDto = new ExpenseSummaryDto();
+        IncomeSummaryDto summaryDto = new IncomeSummaryDto();
         summaryDto.setTotalsByCategory(totalsByCategory.stream()
-                .map(view -> new ExpenseSummaryDto.CategoryTotalDto(
+                .map(view -> new IncomeSummaryDto.CategoryTotalDto(
                         view.getCategoryId(),
                         view.getCategoryName(),
                         normalizeAmount(view.getTotalAmount())))
                 .collect(Collectors.toList()));
 
         summaryDto.setTotalsByMonth(totalsByPeriod.stream()
-                .map(view -> new ExpenseSummaryDto.MonthlyTotalDto(
+                .map(view -> new IncomeSummaryDto.MonthlyTotalDto(
                         formatPeriod(view.getPeriod()),
                         normalizeAmount(view.getTotalAmount())))
-                .sorted(Comparator.comparing(ExpenseSummaryDto.MonthlyTotalDto::getPeriod))
+                .sorted(Comparator.comparing(IncomeSummaryDto.MonthlyTotalDto::getPeriod))
                 .collect(Collectors.toList()));
 
         summaryDto.setCategoryMonthlyTotals(buildCategoryMonthlySummary(categoryPeriodTotals));
 
         BigDecimal totalAmount = summaryDto.getTotalsByCategory().stream()
-                .map(ExpenseSummaryDto.CategoryTotalDto::getTotalAmount)
+                .map(IncomeSummaryDto.CategoryTotalDto::getTotalAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         summaryDto.setTotalAmount(normalizeAmount(totalAmount));
         return summaryDto;
     }
 
-    private List<ExpenseSummaryDto.CategoryMonthlySummaryDto> buildCategoryMonthlySummary(List<CategoryPeriodAmountView> categoryPeriodTotals) {
-        Map<Long, ExpenseSummaryDto.CategoryMonthlySummaryDto> grouped = new LinkedHashMap<>();
+    private List<IncomeSummaryDto.CategoryMonthlySummaryDto> buildCategoryMonthlySummary(List<CategoryPeriodAmountView> categoryPeriodTotals) {
+        Map<Long, IncomeSummaryDto.CategoryMonthlySummaryDto> grouped = new LinkedHashMap<>();
         for (CategoryPeriodAmountView view : categoryPeriodTotals) {
-            ExpenseSummaryDto.CategoryMonthlySummaryDto summary = grouped.computeIfAbsent(
+            IncomeSummaryDto.CategoryMonthlySummaryDto summary = grouped.computeIfAbsent(
                     view.getCategoryId(),
-                    key -> new ExpenseSummaryDto.CategoryMonthlySummaryDto(
+                    key -> new IncomeSummaryDto.CategoryMonthlySummaryDto(
                             view.getCategoryId(),
                             view.getCategoryName(),
                             new ArrayList<>()));
-            summary.getMonthlyTotals().add(new ExpenseSummaryDto.MonthlyTotalDto(
+            summary.getMonthlyTotals().add(new IncomeSummaryDto.MonthlyTotalDto(
                     formatPeriod(view.getPeriod()),
                     normalizeAmount(view.getTotalAmount())));
         }
 
         return grouped.values().stream()
-                .peek(summary -> summary.getMonthlyTotals().sort(Comparator.comparing(ExpenseSummaryDto.MonthlyTotalDto::getPeriod)))
+                .peek(summary -> summary.getMonthlyTotals().sort(Comparator.comparing(IncomeSummaryDto.MonthlyTotalDto::getPeriod)))
                 .collect(Collectors.toList());
     }
 
-    private ExpenseRecord mapToEntity(ExpenseRecordRequestDto dto, YearMonth defaultPeriod, User currentUser) {
-        ExpenseCategory category = expenseCategoryRepository.findByIdAndUser(dto.getCategoryId(), currentUser)
-                .orElseThrow(() -> new ExpenseCategoryNotFoundException(dto.getCategoryId()));
+    private IncomeRecord mapToEntity(IncomeRecordRequestDto dto, YearMonth defaultPeriod, User currentUser) {
+        IncomeCategory category = incomeCategoryRepository.findByIdAndUser(dto.getCategoryId(), currentUser)
+                .orElseThrow(() -> new IncomeCategoryNotFoundException(dto.getCategoryId()));
 
-        LocalDate expenseDate = dto.getExpenseDate();
-        YearMonth period = resolvePeriod(dto, defaultPeriod, expenseDate);
+        LocalDate incomeDate = dto.getIncomeDate();
+        YearMonth period = resolvePeriod(dto, defaultPeriod, incomeDate);
 
-        ExpenseRecord record = new ExpenseRecord();
+        IncomeRecord record = new IncomeRecord();
         record.setUser(currentUser);
         record.setCategory(category);
         record.setTitle(dto.getTitle());
         record.setDescription(dto.getDescription());
         record.setAmount(normalizeAmount(dto.getAmount()));
         record.setPeriod(period.atDay(1));
-        record.setExpenseDate(expenseDate);
+        record.setIncomeDate(incomeDate);
         return record;
     }
 
-    private YearMonth resolvePeriod(ExpenseRecordRequestDto dto, YearMonth defaultPeriod, LocalDate expenseDate) {
-        if (expenseDate != null) {
-            return YearMonth.from(expenseDate);
+    private YearMonth resolvePeriod(IncomeRecordRequestDto dto, YearMonth defaultPeriod, LocalDate incomeDate) {
+        if (incomeDate != null) {
+            return YearMonth.from(incomeDate);
         }
         if (dto.getPeriod() != null && !dto.getPeriod().isBlank()) {
-            return parsePeriod(dto.getPeriod());
+            return parseOptionalPeriod(dto.getPeriod());
         }
         if (defaultPeriod != null) {
             return defaultPeriod;
         }
-        throw new IllegalArgumentException("Для траты необходимо указать дату или месяц");
+        throw new IllegalArgumentException("Для дохода необходимо указать дату или месяц");
     }
 
     private User getCurrentUser() {

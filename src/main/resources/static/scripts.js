@@ -516,5 +516,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (await isAuthenticated()) window.location.href = '/tracker.html';
     } else if (path.endsWith('login.html') || path.endsWith('register.html')) {
         if (await isAuthenticated()) window.location.href = '/tracker.html';
+    } else if (path.endsWith('finance.html')) {
+        if (typeof initFinancePage === 'function') {
+            await initFinancePage();
+        }
     }
 });
