@@ -25,9 +25,15 @@
         document.getElementById('incomeDefaultMonth').value = currentMonth;
         document.getElementById('budgetMonth').value = currentMonth;
         document.getElementById('filterMonth').value = currentMonth;
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        document.getElementById('detailFrom').value = formatDateInput(firstDay);
+        document.getElementById('detailTo').value = formatDateInput(lastDay);
 
         await loadBudgetData(currentMonth);
         await loadDashboard();
+        await loadExpenseDetails();
     };
 
     function setupEventHandlers() {
@@ -68,6 +74,11 @@
         document.getElementById('analyticsFilters').addEventListener('submit', async (e) => {
             e.preventDefault();
             await loadDashboard();
+        });
+
+        document.getElementById('detailFilterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await loadExpenseDetails();
         });
     }
 
@@ -182,6 +193,7 @@
     function updateCategorySelects() {
         updateSelectForType('expense', expenseCategories);
         updateSelectForType('income', incomeCategories);
+        updateAnalyticsCategoryFilters();
     }
 
     function updateSelectForType(type, categories) {
@@ -193,6 +205,35 @@
             select.innerHTML = options;
             if (current) select.value = current;
         });
+    }
+
+    function updateAnalyticsCategoryFilters() {
+        updateMultiSelectOptions('expenseFilterCategories', expenseCategories);
+        updateMultiSelectOptions('incomeFilterCategories', incomeCategories);
+        updateMultiSelectOptions('detailCategories', expenseCategories);
+    }
+
+    function updateMultiSelectOptions(selectId, categories) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const previous = new Set(Array.from(select.selectedOptions || []).map(option => option.value));
+        select.innerHTML = '';
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = String(category.id);
+            option.textContent = category.name;
+            if (previous.size === 0 || previous.has(option.value)) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        if (!categories.length) {
+            select.innerHTML = '';
+            return;
+        }
+        if (previous.size === 0) {
+            Array.from(select.options).forEach(option => option.selected = true);
+        }
     }
 
     function applyDefaultMonth(type) {
@@ -358,6 +399,8 @@
         if (from) params.set('from', from);
         if (to) params.set('to', to);
         if (month) params.set('month', month);
+        getSelectedValues('expenseFilterCategories').forEach(id => params.append('expenseCategories', id));
+        getSelectedValues('incomeFilterCategories').forEach(id => params.append('incomeCategories', id));
 
         const url = `/api/budgets/dashboard${params.toString() ? `?${params}` : ''}`;
         const resp = await apiFetch(url);
@@ -410,13 +453,94 @@
     }
 
     function renderCharts(data) {
-        renderPieChart('expenseByCategoryChart', data.expenseSummary?.totalsByCategory || [], 'Расходы по категориям');
-        renderPieChart('incomeByCategoryChart', data.incomeSummary?.totalsByCategory || [], 'Доходы по категориям');
+        renderPieChart('expenseByCategoryChart', data.expenseSummary?.totalsByCategory || [], 'Расходы по категориям', 'expenseByCategoryLegend');
+        renderPieChart('incomeByCategoryChart', data.incomeSummary?.totalsByCategory || [], 'Доходы по категориям', 'incomeByCategoryLegend');
         renderCashFlowChart(data.budgets || []);
         renderCategoryTrends(data.expenseSummary?.categoryMonthlyTotals || []);
     }
 
-    function renderPieChart(elementId, totals, label) {
+    async function loadExpenseDetails() {
+        const from = document.getElementById('detailFrom').value;
+        const to = document.getElementById('detailTo').value;
+        if (!from || !to) {
+            showMessage('Выберите даты для детализации расходов', 'warning');
+            return;
+        }
+        if (new Date(to) < new Date(from)) {
+            showMessage('Дата окончания не может быть раньше даты начала', 'warning');
+            return;
+        }
+        const params = new URLSearchParams();
+        params.set('from', from);
+        params.set('to', to);
+        getSelectedValues('detailCategories').forEach(id => params.append('categories', id));
+
+        const query = params.toString();
+        try {
+            const [summaryResp, expensesResp] = await Promise.all([
+                apiFetch(`/api/expenses/summary?${query}`),
+                apiFetch(`/api/expenses?${query}`)
+            ]);
+            if (!summaryResp.ok) throw new Error(await summaryResp.text());
+            if (!expensesResp.ok) throw new Error(await expensesResp.text());
+            const summary = await summaryResp.json();
+            const expenses = await expensesResp.json();
+            document.getElementById('detailTotalsAmount').textContent = formatCurrency(summary.totalAmount);
+            renderDetailCategories(summary);
+            renderDetailExpenses(expenses);
+        } catch (error) {
+            document.getElementById('detailTotalsAmount').textContent = formatCurrency(0);
+            renderDetailCategories(null);
+            renderDetailExpenses([]);
+            if (error && error.message) {
+                showMessage(error.message, 'danger');
+            }
+        }
+    }
+
+    function renderDetailCategories(summary) {
+        const tbody = document.getElementById('detailCategoryBody');
+        if (!tbody) return;
+        const totals = summary?.totalsByCategory || [];
+        if (!totals.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Нет данных для выбранного периода</td></tr>';
+            return;
+        }
+        tbody.innerHTML = totals.map(item => `
+            <tr>
+                <td>${escapeHtml(item.categoryName)}</td>
+                <td class="text-end">${formatCurrency(item.totalAmount)}</td>
+                <td class="text-end">${formatPercentage(item.percentage)}</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderDetailExpenses(expenses) {
+        const container = document.getElementById('detailExpenseList');
+        if (!container) return;
+        if (!expenses || !expenses.length) {
+            container.innerHTML = '<div class="list-group-item text-muted">Нет операций за выбранный период</div>';
+            return;
+        }
+        container.innerHTML = '';
+        expenses.forEach(record => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item';
+            const dateLabel = record.expenseDate
+                ? new Date(record.expenseDate).toLocaleDateString('ru-RU')
+                : formatMonthLabel(record.period);
+            item.innerHTML = `
+                <div>
+                    <div class="fw-semibold">${escapeHtml(record.title)}</div>
+                    <div class="detail-expense-meta">${escapeHtml(record.categoryName || 'Без категории')} · ${escapeHtml(dateLabel || '')}</div>
+                </div>
+                <div class="fw-bold text-danger">${formatCurrency(record.amount)}</div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    function renderPieChart(elementId, totals, label, legendId) {
         const ctx = document.getElementById(elementId);
         if (!ctx) return;
         const labels = totals.map(item => item.categoryName);
@@ -439,6 +563,22 @@
                 }
             }
         });
+
+        if (legendId) {
+            const legendContainer = document.getElementById(legendId);
+            if (legendContainer) {
+                if (!totals.length) {
+                    legendContainer.innerHTML = '<div class="text-muted small">Нет данных для отображения</div>';
+                } else {
+                    legendContainer.innerHTML = totals.map(item => `
+                        <div class="chart-legend-item">
+                            <span>${escapeHtml(item.categoryName)}</span>
+                            <span class="chart-legend-amount">${formatCurrency(item.totalAmount)} · ${formatPercentage(item.percentage)}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
     }
 
     function renderCashFlowChart(budgets) {
@@ -557,6 +697,12 @@
         }
     }
 
+    function getSelectedValues(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return [];
+        return Array.from(select.selectedOptions || []).map(option => option.value).filter(Boolean);
+    }
+
     function toInputValue(value) {
         return value == null ? '' : Number(value).toFixed(2);
     }
@@ -570,6 +716,21 @@
     function formatCurrency(value) {
         const num = Number(value || 0);
         return num.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 2 });
+    }
+
+    function formatPercentage(value) {
+        const num = Number(value || 0);
+        return `${num.toFixed(1)}%`;
+    }
+
+    function formatDateInput(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '';
+        }
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     function formatMonthLabel(period) {

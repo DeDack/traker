@@ -48,7 +48,9 @@ public class BudgetController implements BudgetControllerApi {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<FinanceDashboardDto> getDashboard(@RequestParam(required = false) String from,
                                                             @RequestParam(required = false) String to,
-                                                            @RequestParam(required = false) String month) {
-        return ResponseEntity.ok(financeSummaryService.getDashboard(from, to, month));
+                                                            @RequestParam(required = false) String month,
+                                                            @RequestParam(required = false, name = "expenseCategories") List<Long> expenseCategoryIds,
+                                                            @RequestParam(required = false, name = "incomeCategories") List<Long> incomeCategoryIds) {
+        return ResponseEntity.ok(financeSummaryService.getDashboard(from, to, month, expenseCategoryIds, incomeCategoryIds));
     }
 }

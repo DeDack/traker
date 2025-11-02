@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -29,7 +30,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.traker.traker.utils.FinanceUtils.FinanceFilter;
@@ -62,7 +62,7 @@ public class IncomeRecordService {
     }
 
     @Transactional(readOnly = true)
-    public List<IncomeRecordResponseDto> getIncomes(String fromDate, String toDate, String month) {
+    public List<IncomeRecordResponseDto> getIncomes(String fromDate, String toDate, String month, List<Long> categoryIds) {
         FinanceFilter filter = buildFilter(fromDate, toDate, month);
         User currentUser = getCurrentUser();
         List<IncomeRecord> records = incomeRecordRepository.findByUserAndFilter(
@@ -70,42 +70,57 @@ public class IncomeRecordService {
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
-                filter.toPeriod());
+                filter.toPeriod(),
+                normalizeCategoryFilter(categoryIds));
         return incomeRecordMapper.toDtoList(records);
     }
 
     @Transactional(readOnly = true)
-    public IncomeSummaryDto getSummary(String fromDate, String toDate, String month) {
+    public IncomeSummaryDto getSummary(String fromDate, String toDate, String month, List<Long> categoryIds) {
         FinanceFilter filter = buildFilter(fromDate, toDate, month);
         User currentUser = getCurrentUser();
+
+        List<Long> normalizedCategories = normalizeCategoryFilter(categoryIds);
 
         List<CategoryAmountView> totalsByCategory = incomeRecordRepository.sumByCategory(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
-                filter.toPeriod());
+                filter.toPeriod(),
+                normalizedCategories);
+
+        BigDecimal totalAmount = totalsByCategory.stream()
+                .map(CategoryAmountView::getTotalAmount)
+                .map(amount -> normalizeAmount(amount))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<PeriodAmountView> totalsByPeriod = incomeRecordRepository.sumByPeriod(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
-                filter.toPeriod());
+                filter.toPeriod(),
+                normalizedCategories);
 
         List<CategoryPeriodAmountView> categoryPeriodTotals = incomeRecordRepository.sumByCategoryAndPeriod(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
-                filter.toPeriod());
+                filter.toPeriod(),
+                normalizedCategories);
 
         IncomeSummaryDto summaryDto = new IncomeSummaryDto();
         summaryDto.setTotalsByCategory(totalsByCategory.stream()
-                .map(view -> new IncomeSummaryDto.CategoryTotalDto(
-                        view.getCategoryId(),
-                        view.getCategoryName(),
-                        normalizeAmount(view.getTotalAmount())))
+                .map(view -> {
+                    BigDecimal amount = normalizeAmount(view.getTotalAmount());
+                    return new IncomeSummaryDto.CategoryTotalDto(
+                            view.getCategoryId(),
+                            view.getCategoryName(),
+                            amount,
+                            calculatePercentage(amount, totalAmount));
+                })
                 .collect(Collectors.toList()));
 
         summaryDto.setTotalsByMonth(totalsByPeriod.stream()
@@ -117,12 +132,22 @@ public class IncomeRecordService {
 
         summaryDto.setCategoryMonthlyTotals(buildCategoryMonthlySummary(categoryPeriodTotals));
 
-        BigDecimal totalAmount = summaryDto.getTotalsByCategory().stream()
-                .map(IncomeSummaryDto.CategoryTotalDto::getTotalAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
         summaryDto.setTotalAmount(normalizeAmount(totalAmount));
         return summaryDto;
+    }
+
+    private BigDecimal calculatePercentage(BigDecimal amount, BigDecimal total) {
+        if (total == null || total.compareTo(BigDecimal.ZERO) == 0) {
+            return normalizeAmount(BigDecimal.ZERO);
+        }
+        return amount.multiply(BigDecimal.valueOf(100)).divide(total, 2, RoundingMode.HALF_UP);
+    }
+
+    private List<Long> normalizeCategoryFilter(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return null;
+        }
+        return categoryIds;
     }
 
     private List<IncomeSummaryDto.CategoryMonthlySummaryDto> buildCategoryMonthlySummary(List<CategoryPeriodAmountView> categoryPeriodTotals) {

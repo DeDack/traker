@@ -3,9 +3,11 @@ package com.traker.traker.service;
 import com.traker.traker.dto.expense.ExpenseCategoryDto;
 import com.traker.traker.entity.ExpenseCategory;
 import com.traker.traker.entity.User;
+import com.traker.traker.exception.CategoryInUseException;
 import com.traker.traker.exception.ExpenseCategoryNotFoundException;
 import com.traker.traker.mapper.ExpenseCategoryMapper;
 import com.traker.traker.repository.ExpenseCategoryRepository;
+import com.traker.traker.repository.ExpenseRecordRepository;
 import com.traker.traker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 public class ExpenseCategoryService {
 
     private final ExpenseCategoryRepository expenseCategoryRepository;
+    private final ExpenseRecordRepository expenseRecordRepository;
     private final ExpenseCategoryMapper expenseCategoryMapper;
     private final UserRepository userRepository;
 
@@ -53,6 +56,9 @@ public class ExpenseCategoryService {
         User currentUser = getCurrentUser();
         ExpenseCategory category = expenseCategoryRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new ExpenseCategoryNotFoundException(id));
+        if (expenseRecordRepository.existsByUserAndCategory_Id(currentUser, id)) {
+            throw new CategoryInUseException("Нельзя удалить категорию с прикрепленными тратами. Перенесите записи или удалите их.");
+        }
         expenseCategoryRepository.delete(category);
     }
 

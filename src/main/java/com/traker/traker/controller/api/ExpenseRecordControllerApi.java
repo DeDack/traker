@@ -30,12 +30,14 @@ public interface ExpenseRecordControllerApi {
     @GetMapping
     ResponseEntity<List<ExpenseRecordResponseDto>> getExpenses(@RequestParam(required = false) String from,
                                                                @RequestParam(required = false) String to,
-                                                               @RequestParam(required = false) String month);
+                                                               @RequestParam(required = false) String month,
+                                                               @RequestParam(required = false, name = "categories") List<Long> categoryIds);
 
     @Operation(summary = "Получение агрегированной статистики")
     @ApiResponse(responseCode = "200", description = "Статистика сформирована")
     @GetMapping("/summary")
     ResponseEntity<ExpenseSummaryDto> getSummary(@RequestParam(required = false) String from,
                                                  @RequestParam(required = false) String to,
-                                                 @RequestParam(required = false) String month);
+                                                 @RequestParam(required = false) String month,
+                                                 @RequestParam(required = false, name = "categories") List<Long> categoryIds);
 }

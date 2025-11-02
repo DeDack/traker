@@ -21,9 +21,11 @@ public class FinanceSummaryService {
     private final IncomeRecordService incomeRecordService;
     private final BudgetService budgetService;
 
-    public FinanceDashboardDto getDashboard(String fromDate, String toDate, String month) {
-        ExpenseSummaryDto expenseSummary = expenseRecordService.getSummary(fromDate, toDate, month);
-        IncomeSummaryDto incomeSummary = incomeRecordService.getSummary(fromDate, toDate, month);
+    public FinanceDashboardDto getDashboard(String fromDate, String toDate, String month,
+                                            List<Long> expenseCategoryIds,
+                                            List<Long> incomeCategoryIds) {
+        ExpenseSummaryDto expenseSummary = expenseRecordService.getSummary(fromDate, toDate, month, expenseCategoryIds);
+        IncomeSummaryDto incomeSummary = incomeRecordService.getSummary(fromDate, toDate, month, incomeCategoryIds);
         List<BudgetResponseDto> budgets = budgetService.getBudgets(fromDate, toDate, month);
 
         FinanceDashboardDto dashboard = new FinanceDashboardDto();

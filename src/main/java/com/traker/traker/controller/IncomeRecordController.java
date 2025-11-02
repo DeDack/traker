@@ -30,16 +30,18 @@ public class IncomeRecordController implements IncomeRecordControllerApi {
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IncomeRecordResponseDto>> getIncomes(@RequestParam(required = false) String from,
-                                                                    @RequestParam(required = false) String to,
-                                                                    @RequestParam(required = false) String month) {
-        return ResponseEntity.ok(incomeRecordService.getIncomes(from, to, month));
+                                                                   @RequestParam(required = false) String to,
+                                                                   @RequestParam(required = false) String month,
+                                                                   @RequestParam(required = false, name = "categories") List<Long> categoryIds) {
+        return ResponseEntity.ok(incomeRecordService.getIncomes(from, to, month, categoryIds));
     }
 
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<IncomeSummaryDto> getSummary(@RequestParam(required = false) String from,
                                                        @RequestParam(required = false) String to,
-                                                       @RequestParam(required = false) String month) {
-        return ResponseEntity.ok(incomeRecordService.getSummary(from, to, month));
+                                                       @RequestParam(required = false) String month,
+                                                       @RequestParam(required = false, name = "categories") List<Long> categoryIds) {
+        return ResponseEntity.ok(incomeRecordService.getSummary(from, to, month, categoryIds));
     }
 }

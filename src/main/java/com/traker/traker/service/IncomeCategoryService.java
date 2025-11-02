@@ -3,9 +3,11 @@ package com.traker.traker.service;
 import com.traker.traker.dto.income.IncomeCategoryDto;
 import com.traker.traker.entity.IncomeCategory;
 import com.traker.traker.entity.User;
+import com.traker.traker.exception.CategoryInUseException;
 import com.traker.traker.exception.IncomeCategoryNotFoundException;
 import com.traker.traker.mapper.IncomeCategoryMapper;
 import com.traker.traker.repository.IncomeCategoryRepository;
+import com.traker.traker.repository.IncomeRecordRepository;
 import com.traker.traker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 public class IncomeCategoryService {
 
     private final IncomeCategoryRepository incomeCategoryRepository;
+    private final IncomeRecordRepository incomeRecordRepository;
     private final IncomeCategoryMapper incomeCategoryMapper;
     private final UserRepository userRepository;
 
@@ -53,6 +56,9 @@ public class IncomeCategoryService {
         User currentUser = getCurrentUser();
         IncomeCategory category = incomeCategoryRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new IncomeCategoryNotFoundException(id));
+        if (incomeRecordRepository.existsByUserAndCategory_Id(currentUser, id)) {
+            throw new CategoryInUseException("Нельзя удалить категорию с привязанными доходами. Перенесите или удалите записи.");
+        }
         incomeCategoryRepository.delete(category);
     }
 

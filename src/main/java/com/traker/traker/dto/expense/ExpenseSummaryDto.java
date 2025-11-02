@@ -24,6 +24,7 @@ public class ExpenseSummaryDto {
         private Long categoryId;
         private String categoryName;
         private BigDecimal totalAmount;
+        private BigDecimal percentage;
     }
 
     @Data

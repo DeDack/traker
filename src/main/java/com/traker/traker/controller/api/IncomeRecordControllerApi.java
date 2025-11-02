@@ -30,12 +30,14 @@ public interface IncomeRecordControllerApi {
     @GetMapping
     ResponseEntity<List<IncomeRecordResponseDto>> getIncomes(@RequestParam(required = false) String from,
                                                              @RequestParam(required = false) String to,
-                                                             @RequestParam(required = false) String month);
+                                                             @RequestParam(required = false) String month,
+                                                             @RequestParam(required = false, name = "categories") List<Long> categoryIds);
 
     @Operation(summary = "Получение агрегированной статистики по доходам")
     @ApiResponse(responseCode = "200", description = "Статистика сформирована")
     @GetMapping("/summary")
     ResponseEntity<IncomeSummaryDto> getSummary(@RequestParam(required = false) String from,
                                                 @RequestParam(required = false) String to,
-                                                @RequestParam(required = false) String month);
+                                                @RequestParam(required = false) String month,
+                                                @RequestParam(required = false, name = "categories") List<Long> categoryIds);
 }

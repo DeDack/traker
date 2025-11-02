@@ -29,13 +29,15 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                     er.expenseDate IS NULL
                     OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
+              AND (:categoryIds IS NULL OR er.category.id IN :categoryIds)
             ORDER BY er.period ASC, er.expenseDate ASC, er.id ASC
             """)
     List<ExpenseRecord> findByUserAndFilter(@Param("user") User user,
                                             @Param("fromDate") LocalDate fromDate,
                                             @Param("toDate") LocalDate toDate,
                                             @Param("fromPeriod") LocalDate fromPeriod,
-                                            @Param("toPeriod") LocalDate toPeriod);
+                                            @Param("toPeriod") LocalDate toPeriod,
+                                            @Param("categoryIds") List<Long> categoryIds);
 
     @Query("""
             SELECT er.category.id as categoryId,
@@ -53,6 +55,7 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                     er.expenseDate IS NULL
                     OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
+              AND (:categoryIds IS NULL OR er.category.id IN :categoryIds)
             GROUP BY er.category.id, er.category.name
             ORDER BY er.category.name
             """)
@@ -60,7 +63,8 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                                            @Param("fromDate") LocalDate fromDate,
                                            @Param("toDate") LocalDate toDate,
                                            @Param("fromPeriod") LocalDate fromPeriod,
-                                           @Param("toPeriod") LocalDate toPeriod);
+                                           @Param("toPeriod") LocalDate toPeriod,
+                                           @Param("categoryIds") List<Long> categoryIds);
 
     @Query("""
             SELECT er.period as period,
@@ -77,6 +81,7 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                     er.expenseDate IS NULL
                     OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
+              AND (:categoryIds IS NULL OR er.category.id IN :categoryIds)
             GROUP BY er.period
             ORDER BY er.period
             """)
@@ -84,7 +89,8 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                                        @Param("fromDate") LocalDate fromDate,
                                        @Param("toDate") LocalDate toDate,
                                        @Param("fromPeriod") LocalDate fromPeriod,
-                                       @Param("toPeriod") LocalDate toPeriod);
+                                       @Param("toPeriod") LocalDate toPeriod,
+                                       @Param("categoryIds") List<Long> categoryIds);
 
     @Query("""
             SELECT er.category.id as categoryId,
@@ -103,6 +109,7 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                     er.expenseDate IS NULL
                     OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
+              AND (:categoryIds IS NULL OR er.category.id IN :categoryIds)
             GROUP BY er.category.id, er.category.name, er.period
             ORDER BY er.category.name, er.period
             """)
@@ -110,5 +117,8 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                                                           @Param("fromDate") LocalDate fromDate,
                                                           @Param("toDate") LocalDate toDate,
                                                           @Param("fromPeriod") LocalDate fromPeriod,
-                                                          @Param("toPeriod") LocalDate toPeriod);
+                                                          @Param("toPeriod") LocalDate toPeriod,
+                                                          @Param("categoryIds") List<Long> categoryIds);
+
+    boolean existsByUserAndCategory_Id(User user, Long categoryId);
 }

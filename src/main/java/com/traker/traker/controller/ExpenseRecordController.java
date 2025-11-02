@@ -31,15 +31,17 @@ public class ExpenseRecordController implements ExpenseRecordControllerApi {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ExpenseRecordResponseDto>> getExpenses(@RequestParam(required = false) String from,
                                                                       @RequestParam(required = false) String to,
-                                                                      @RequestParam(required = false) String month) {
-        return ResponseEntity.ok(expenseRecordService.getExpenses(from, to, month));
+                                                                      @RequestParam(required = false) String month,
+                                                                      @RequestParam(required = false, name = "categories") List<Long> categoryIds) {
+        return ResponseEntity.ok(expenseRecordService.getExpenses(from, to, month, categoryIds));
     }
 
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ExpenseSummaryDto> getSummary(@RequestParam(required = false) String from,
                                                         @RequestParam(required = false) String to,
-                                                        @RequestParam(required = false) String month) {
-        return ResponseEntity.ok(expenseRecordService.getSummary(from, to, month));
+                                                        @RequestParam(required = false) String month,
+                                                        @RequestParam(required = false, name = "categories") List<Long> categoryIds) {
+        return ResponseEntity.ok(expenseRecordService.getSummary(from, to, month, categoryIds));
     }
 }

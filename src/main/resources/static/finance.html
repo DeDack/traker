@@ -37,6 +37,31 @@
             padding: 2px 10px;
             font-size: 12px;
         }
+        .chart-legend-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            padding: 4px 0;
+            border-bottom: 1px dashed #e5e7eb;
+        }
+        .chart-legend-item:last-child {
+            border-bottom: none;
+        }
+        .chart-legend-amount {
+            font-weight: 600;
+        }
+        .multi-select {
+            min-width: 220px;
+        }
+        .detail-expense-list .list-group-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .detail-expense-meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
     </style>
 </head>
 <body>
@@ -246,11 +271,30 @@
                 <h2 class="section-title">Аналитика и диаграммы</h2>
                 <p class="text-muted mb-0">Выбирайте месяц или интервал и смотрите визуализации по категориям и динамике</p>
             </div>
-            <form id="analyticsFilters" class="d-flex flex-wrap gap-2">
-                <input type="date" class="form-control" id="filterFrom" placeholder="С даты">
-                <input type="date" class="form-control" id="filterTo" placeholder="По дату">
-                <input type="month" class="form-control" id="filterMonth" placeholder="Месяц">
-                <button type="submit" class="btn btn-outline-primary pill-button">Обновить</button>
+            <form id="analyticsFilters" class="row gy-2 gx-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label small text-muted mb-1" for="filterFrom">С даты</label>
+                    <input type="date" class="form-control" id="filterFrom">
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small text-muted mb-1" for="filterTo">По дату</label>
+                    <input type="date" class="form-control" id="filterTo">
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small text-muted mb-1" for="filterMonth">Месяц</label>
+                    <input type="month" class="form-control" id="filterMonth">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1" for="expenseFilterCategories">Категории расходов</label>
+                    <select id="expenseFilterCategories" class="form-select multi-select" multiple size="4"></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1" for="incomeFilterCategories">Категории доходов</label>
+                    <select id="incomeFilterCategories" class="form-select multi-select" multiple size="4"></select>
+                </div>
+                <div class="col-auto align-self-end">
+                    <button type="submit" class="btn btn-outline-primary pill-button">Обновить</button>
+                </div>
             </form>
         </div>
         <div class="row g-3 mb-3" id="dashboardSummary"></div>
@@ -260,6 +304,7 @@
                     <div class="card-body">
                         <h5 class="card-title">Расходы по категориям</h5>
                         <canvas id="expenseByCategoryChart"></canvas>
+                        <div class="mt-3" id="expenseByCategoryLegend"></div>
                     </div>
                 </div>
             </div>
@@ -268,6 +313,7 @@
                     <div class="card-body">
                         <h5 class="card-title">Доходы по категориям</h5>
                         <canvas id="incomeByCategoryChart"></canvas>
+                        <div class="mt-3" id="incomeByCategoryLegend"></div>
                     </div>
                 </div>
             </div>
@@ -287,6 +333,64 @@
                     <div id="categoryToggleContainer" class="d-flex flex-wrap gap-2"></div>
                 </div>
                 <canvas id="categoryTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="section-card">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
+            <div>
+                <h2 class="section-title">Детальный список расходов</h2>
+                <p class="text-muted mb-0">Выберите период и категории, чтобы увидеть структуру и отдельные операции</p>
+            </div>
+        </div>
+        <form id="detailFilterForm" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1" for="detailFrom">С даты</label>
+                <input type="date" class="form-control" id="detailFrom" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1" for="detailTo">По дату</label>
+                <input type="date" class="form-control" id="detailTo" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1" for="detailCategories">Категории расходов</label>
+                <select id="detailCategories" class="form-select multi-select" multiple size="4"></select>
+                <div class="form-text">Если не выбрано ни одной, используются все категории</div>
+            </div>
+            <div class="col-md-2 align-self-end">
+                <button type="submit" class="btn btn-primary pill-button w-100">Показать</button>
+            </div>
+        </form>
+        <div class="row g-4 mt-2">
+            <div class="col-lg-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="card-title mb-0">Расходы по категориям</h5>
+                            <span class="badge bg-light text-dark" id="detailTotalsAmount">0 ₽</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                <tr>
+                                    <th>Категория</th>
+                                    <th class="text-end">Сумма</th>
+                                    <th class="text-end">Доля</th>
+                                </tr>
+                                </thead>
+                                <tbody id="detailCategoryBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body detail-expense-list">
+                        <h5 class="card-title">Список операций</h5>
+                        <div id="detailExpenseList" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
