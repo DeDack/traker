@@ -19,15 +19,15 @@ public interface IncomeRecordRepository extends DefaultRepository<IncomeRecord, 
     @Query("""
             SELECT ir FROM IncomeRecord ir
             WHERE ir.user = :user
-              AND (:fromPeriod IS NULL OR ir.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR ir.period <= :toPeriod)
+              AND ir.period >= COALESCE(:fromPeriod, ir.period)
+              AND ir.period <= COALESCE(:toPeriod, ir.period)
               AND (
                     ir.incomeDate IS NULL
-                    OR (:fromDate IS NULL OR ir.incomeDate >= :fromDate)
+                    OR ir.incomeDate >= COALESCE(:fromDate, ir.incomeDate)
                 )
               AND (
                     ir.incomeDate IS NULL
-                    OR (:toDate IS NULL OR ir.incomeDate <= :toDate)
+                    OR ir.incomeDate <= COALESCE(:toDate, ir.incomeDate)
                 )
             ORDER BY ir.period ASC, ir.incomeDate ASC, ir.id ASC
             """)
@@ -43,15 +43,15 @@ public interface IncomeRecordRepository extends DefaultRepository<IncomeRecord, 
                    SUM(ir.amount) as totalAmount
             FROM IncomeRecord ir
             WHERE ir.user = :user
-              AND (:fromPeriod IS NULL OR ir.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR ir.period <= :toPeriod)
+              AND ir.period >= COALESCE(:fromPeriod, ir.period)
+              AND ir.period <= COALESCE(:toPeriod, ir.period)
               AND (
                     ir.incomeDate IS NULL
-                    OR (:fromDate IS NULL OR ir.incomeDate >= :fromDate)
+                    OR ir.incomeDate >= COALESCE(:fromDate, ir.incomeDate)
                 )
               AND (
                     ir.incomeDate IS NULL
-                    OR (:toDate IS NULL OR ir.incomeDate <= :toDate)
+                    OR ir.incomeDate <= COALESCE(:toDate, ir.incomeDate)
                 )
             GROUP BY ir.category.id, ir.category.name
             ORDER BY ir.category.name
@@ -67,15 +67,15 @@ public interface IncomeRecordRepository extends DefaultRepository<IncomeRecord, 
                    SUM(ir.amount) as totalAmount
             FROM IncomeRecord ir
             WHERE ir.user = :user
-              AND (:fromPeriod IS NULL OR ir.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR ir.period <= :toPeriod)
+              AND ir.period >= COALESCE(:fromPeriod, ir.period)
+              AND ir.period <= COALESCE(:toPeriod, ir.period)
               AND (
                     ir.incomeDate IS NULL
-                    OR (:fromDate IS NULL OR ir.incomeDate >= :fromDate)
+                    OR ir.incomeDate >= COALESCE(:fromDate, ir.incomeDate)
                 )
               AND (
                     ir.incomeDate IS NULL
-                    OR (:toDate IS NULL OR ir.incomeDate <= :toDate)
+                    OR ir.incomeDate <= COALESCE(:toDate, ir.incomeDate)
                 )
             GROUP BY ir.period
             ORDER BY ir.period
@@ -93,15 +93,15 @@ public interface IncomeRecordRepository extends DefaultRepository<IncomeRecord, 
                    SUM(ir.amount) as totalAmount
             FROM IncomeRecord ir
             WHERE ir.user = :user
-              AND (:fromPeriod IS NULL OR ir.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR ir.period <= :toPeriod)
+              AND ir.period >= COALESCE(:fromPeriod, ir.period)
+              AND ir.period <= COALESCE(:toPeriod, ir.period)
               AND (
                     ir.incomeDate IS NULL
-                    OR (:fromDate IS NULL OR ir.incomeDate >= :fromDate)
+                    OR ir.incomeDate >= COALESCE(:fromDate, ir.incomeDate)
                 )
               AND (
                     ir.incomeDate IS NULL
-                    OR (:toDate IS NULL OR ir.incomeDate <= :toDate)
+                    OR ir.incomeDate <= COALESCE(:toDate, ir.incomeDate)
                 )
             GROUP BY ir.category.id, ir.category.name, ir.period
             ORDER BY ir.category.name, ir.period

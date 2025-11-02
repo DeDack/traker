@@ -19,15 +19,15 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
     @Query("""
             SELECT er FROM ExpenseRecord er
             WHERE er.user = :user
-              AND (:fromPeriod IS NULL OR er.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR er.period <= :toPeriod)
+              AND er.period >= COALESCE(:fromPeriod, er.period)
+              AND er.period <= COALESCE(:toPeriod, er.period)
               AND (
                     er.expenseDate IS NULL
-                    OR (:fromDate IS NULL OR er.expenseDate >= :fromDate)
+                    OR er.expenseDate >= COALESCE(:fromDate, er.expenseDate)
                 )
               AND (
                     er.expenseDate IS NULL
-                    OR (:toDate IS NULL OR er.expenseDate <= :toDate)
+                    OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
             ORDER BY er.period ASC, er.expenseDate ASC, er.id ASC
             """)
@@ -43,15 +43,15 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                    SUM(er.amount) as totalAmount
             FROM ExpenseRecord er
             WHERE er.user = :user
-              AND (:fromPeriod IS NULL OR er.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR er.period <= :toPeriod)
+              AND er.period >= COALESCE(:fromPeriod, er.period)
+              AND er.period <= COALESCE(:toPeriod, er.period)
               AND (
                     er.expenseDate IS NULL
-                    OR (:fromDate IS NULL OR er.expenseDate >= :fromDate)
+                    OR er.expenseDate >= COALESCE(:fromDate, er.expenseDate)
                 )
               AND (
                     er.expenseDate IS NULL
-                    OR (:toDate IS NULL OR er.expenseDate <= :toDate)
+                    OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
             GROUP BY er.category.id, er.category.name
             ORDER BY er.category.name
@@ -67,15 +67,15 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                    SUM(er.amount) as totalAmount
             FROM ExpenseRecord er
             WHERE er.user = :user
-              AND (:fromPeriod IS NULL OR er.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR er.period <= :toPeriod)
+              AND er.period >= COALESCE(:fromPeriod, er.period)
+              AND er.period <= COALESCE(:toPeriod, er.period)
               AND (
                     er.expenseDate IS NULL
-                    OR (:fromDate IS NULL OR er.expenseDate >= :fromDate)
+                    OR er.expenseDate >= COALESCE(:fromDate, er.expenseDate)
                 )
               AND (
                     er.expenseDate IS NULL
-                    OR (:toDate IS NULL OR er.expenseDate <= :toDate)
+                    OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
             GROUP BY er.period
             ORDER BY er.period
@@ -93,15 +93,15 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                    SUM(er.amount) as totalAmount
             FROM ExpenseRecord er
             WHERE er.user = :user
-              AND (:fromPeriod IS NULL OR er.period >= :fromPeriod)
-              AND (:toPeriod IS NULL OR er.period <= :toPeriod)
+              AND er.period >= COALESCE(:fromPeriod, er.period)
+              AND er.period <= COALESCE(:toPeriod, er.period)
               AND (
                     er.expenseDate IS NULL
-                    OR (:fromDate IS NULL OR er.expenseDate >= :fromDate)
+                    OR er.expenseDate >= COALESCE(:fromDate, er.expenseDate)
                 )
               AND (
                     er.expenseDate IS NULL
-                    OR (:toDate IS NULL OR er.expenseDate <= :toDate)
+                    OR er.expenseDate <= COALESCE(:toDate, er.expenseDate)
                 )
             GROUP BY er.category.id, er.category.name, er.period
             ORDER BY er.category.name, er.period
