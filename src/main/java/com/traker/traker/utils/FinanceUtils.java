@@ -1,7 +1,5 @@
 package com.traker.traker.utils;
 
-import lombok.experimental.UtilityClass;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -9,12 +7,20 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
-@UtilityClass
-public class FinanceUtils {
+/**
+ * Утилитарные методы для работы с финансовыми фильтрами и форматами дат.
+ */
+public final class FinanceUtils {
+
+    private FinanceUtils() {
+    }
 
     public static final DateTimeFormatter PERIOD_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
 
-    public FinanceFilter buildFilter(String fromDate, String toDate, String month) {
+    /**
+     * Формирует фильтр по датам и месяцам, запрещая смешение точных дат и агрегированного месяца.
+     */
+    public static FinanceFilter buildFilter(String fromDate, String toDate, String month) {
         YearMonth monthFilter = parseOptionalPeriod(month);
         LocalDate from = parseOptionalDate(fromDate);
         LocalDate to = parseOptionalDate(toDate);
@@ -32,19 +38,25 @@ public class FinanceUtils {
             return new FinanceFilter(from, to, period, period, monthFilter);
         }
 
-        LocalDate fromPeriod = from != null ? from.withDayOfMonth(1) : null;
-        LocalDate toPeriod = to != null ? to.withDayOfMonth(1) : null;
+        LocalDate fromPeriod = (from != null) ? from.withDayOfMonth(1) : null;
+        LocalDate toPeriod = (to != null) ? to.withDayOfMonth(1) : null;
         return new FinanceFilter(from, to, fromPeriod, toPeriod, null);
     }
 
-    public YearMonth parseOptionalPeriod(String period) {
+    /**
+     * Парсит период формата yyyy-MM, возвращая {@code null} для пустых значений.
+     */
+    public static YearMonth parseOptionalPeriod(String period) {
         if (period == null || period.isBlank()) {
             return null;
         }
         return parsePeriod(period);
     }
 
-    public YearMonth parsePeriod(String period) {
+    /**
+     * Парсит период формата yyyy-MM, выбрасывая {@link IllegalArgumentException} при ошибке.
+     */
+    public static YearMonth parsePeriod(String period) {
         try {
             return YearMonth.parse(period, PERIOD_FORMATTER);
         } catch (DateTimeParseException e) {
@@ -52,7 +64,10 @@ public class FinanceUtils {
         }
     }
 
-    public LocalDate parseOptionalDate(String date) {
+    /**
+     * Парсит ISO-дату yyyy-MM-dd, возвращая {@code null} для пустых значений.
+     */
+    public static LocalDate parseOptionalDate(String date) {
         if (date == null || date.isBlank()) {
             return null;
         }
@@ -63,19 +78,27 @@ public class FinanceUtils {
         }
     }
 
-    public BigDecimal normalizeAmount(BigDecimal amount) {
-        BigDecimal value = amount == null ? BigDecimal.ZERO : amount;
+    /**
+     * Нормализует сумму до двух знаков после запятой, интерпретируя {@code null} как ноль.
+     */
+    public static BigDecimal normalizeAmount(BigDecimal amount) {
+        BigDecimal value = (amount == null) ? BigDecimal.ZERO : amount;
         return value.setScale(2, RoundingMode.HALF_UP);
     }
 
-    public String formatPeriod(LocalDate period) {
-        return period == null ? null : period.format(PERIOD_FORMATTER);
+    /**
+     * Форматирует дату начала периода в строку вида yyyy-MM.
+     */
+    public static String formatPeriod(LocalDate period) {
+        return (period == null) ? null : period.format(PERIOD_FORMATTER);
     }
 
-    public record FinanceFilter(LocalDate fromDate,
-                                LocalDate toDate,
-                                LocalDate fromPeriod,
-                                LocalDate toPeriod,
-                                YearMonth month) {
+    public record FinanceFilter(
+            LocalDate fromDate,
+            LocalDate toDate,
+            LocalDate fromPeriod,
+            LocalDate toPeriod,
+            YearMonth month
+    ) {
     }
 }

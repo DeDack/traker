@@ -37,6 +37,7 @@ import static com.traker.traker.utils.FinanceUtils.buildFilter;
 import static com.traker.traker.utils.FinanceUtils.formatPeriod;
 import static com.traker.traker.utils.FinanceUtils.normalizeAmount;
 import static com.traker.traker.utils.FinanceUtils.parseOptionalPeriod;
+import static com.traker.traker.utils.FinanceUtils.parsePeriod;
 
 @Service
 @RequiredArgsConstructor
@@ -166,7 +167,7 @@ public class IncomeRecordService {
             return YearMonth.from(incomeDate);
         }
         if (dto.getPeriod() != null && !dto.getPeriod().isBlank()) {
-            return parseOptionalPeriod(dto.getPeriod());
+            return parsePeriod(dto.getPeriod());
         }
         if (defaultPeriod != null) {
             return defaultPeriod;
