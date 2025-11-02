@@ -82,14 +82,16 @@ public class BudgetService {
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
-                filter.toPeriod()),
+                filter.toPeriod(),
+                null),
                 period);
         BigDecimal actualIncomes = extractTotalForPeriod(incomeRecordRepository.sumByPeriod(
                 user,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
-                filter.toPeriod()),
+                filter.toPeriod(),
+                null),
                 period);
 
         return buildBudgetDto(period, budget, actualIncomes, actualExpenses);
@@ -109,7 +111,8 @@ public class BudgetService {
                         filter.fromDate(),
                         filter.toDate(),
                         filter.fromPeriod(),
-                        filter.toPeriod())
+                        filter.toPeriod(),
+                        null)
                 .stream()
                 .collect(Collectors.toMap(PeriodAmountView::getPeriod, view -> normalizeAmount(view.getTotalAmount())));
 
@@ -118,7 +121,8 @@ public class BudgetService {
                         filter.fromDate(),
                         filter.toDate(),
                         filter.fromPeriod(),
-                        filter.toPeriod())
+                        filter.toPeriod(),
+                        null)
                 .stream()
                 .collect(Collectors.toMap(PeriodAmountView::getPeriod, view -> normalizeAmount(view.getTotalAmount())));
 
