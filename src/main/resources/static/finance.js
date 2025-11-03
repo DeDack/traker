@@ -10,12 +10,96 @@
         '#e11d48', '#0ea5e9', '#6366f1', '#14b8a6', '#f97316'
     ];
 
+    const managementState = {
+        expense: {
+            records: [],
+            selected: new Set(),
+            modal: null,
+            bulkModal: null,
+            config: {
+                endpoint: '/api/expenses',
+                bulkEndpoint: '/api/expenses/bulk',
+                bulkDeleteEndpoint: '/api/expenses/bulk-delete',
+                dateField: 'expenseDate',
+                manageForm: 'expenseManageFilterForm',
+                manageFrom: 'expenseManageFrom',
+                manageTo: 'expenseManageTo',
+                manageCategories: 'expenseManageCategories',
+                manageBody: 'expenseManageBody',
+                selectAll: 'expenseSelectAll',
+                bulkDeleteBtn: 'expenseBulkDelete',
+                bulkCategoryBtn: 'expenseBulkCategoryBtn',
+                bulkCategorySelect: 'bulkExpenseCategory',
+                editModalId: 'editExpenseModal',
+                bulkModalId: 'expenseBulkCategoryModal',
+                editForm: 'editExpenseForm',
+                bulkForm: 'expenseBulkCategoryForm',
+                editFields: {
+                    id: 'editExpenseId',
+                    title: 'editExpenseTitle',
+                    amount: 'editExpenseAmount',
+                    category: 'editExpenseCategory',
+                    date: 'editExpenseDate',
+                    period: 'editExpensePeriod',
+                    description: 'editExpenseDescription'
+                },
+                labels: {
+                    updated: 'Трата обновлена',
+                    deleted: 'Трата удалена',
+                    bulkDeleted: 'Выбранные траты удалены',
+                    bulkUpdated: 'Категория обновлена'
+                }
+            }
+        },
+        income: {
+            records: [],
+            selected: new Set(),
+            modal: null,
+            bulkModal: null,
+            config: {
+                endpoint: '/api/incomes',
+                bulkEndpoint: '/api/incomes/bulk',
+                bulkDeleteEndpoint: '/api/incomes/bulk-delete',
+                dateField: 'incomeDate',
+                manageForm: 'incomeManageFilterForm',
+                manageFrom: 'incomeManageFrom',
+                manageTo: 'incomeManageTo',
+                manageCategories: 'incomeManageCategories',
+                manageBody: 'incomeManageBody',
+                selectAll: 'incomeSelectAll',
+                bulkDeleteBtn: 'incomeBulkDelete',
+                bulkCategoryBtn: 'incomeBulkCategoryBtn',
+                bulkCategorySelect: 'bulkIncomeCategory',
+                editModalId: 'editIncomeModal',
+                bulkModalId: 'incomeBulkCategoryModal',
+                editForm: 'editIncomeForm',
+                bulkForm: 'incomeBulkCategoryForm',
+                editFields: {
+                    id: 'editIncomeId',
+                    title: 'editIncomeTitle',
+                    amount: 'editIncomeAmount',
+                    category: 'editIncomeCategory',
+                    date: 'editIncomeDate',
+                    period: 'editIncomePeriod',
+                    description: 'editIncomeDescription'
+                },
+                labels: {
+                    updated: 'Доход обновлен',
+                    deleted: 'Доход удален',
+                    bulkDeleted: 'Выбранные доходы удалены',
+                    bulkUpdated: 'Категория обновлена'
+                }
+            }
+        }
+    };
+
     window.initFinancePage = async function () {
         if (!(await isAuthenticated()) && !(await refreshAccessToken())) {
             return showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
         }
 
         setupEventHandlers();
+        initManagementComponents();
         await Promise.all([loadExpenseCategories(), loadIncomeCategories()]);
         addBatchRow('expense');
         addBatchRow('income');
@@ -30,10 +114,20 @@
         const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         document.getElementById('detailFrom').value = formatDateInput(firstDay);
         document.getElementById('detailTo').value = formatDateInput(lastDay);
+        const expenseManageFrom = document.getElementById('expenseManageFrom');
+        const expenseManageTo = document.getElementById('expenseManageTo');
+        const incomeManageFrom = document.getElementById('incomeManageFrom');
+        const incomeManageTo = document.getElementById('incomeManageTo');
+        if (expenseManageFrom) expenseManageFrom.value = formatDateInput(firstDay);
+        if (expenseManageTo) expenseManageTo.value = formatDateInput(lastDay);
+        if (incomeManageFrom) incomeManageFrom.value = formatDateInput(firstDay);
+        if (incomeManageTo) incomeManageTo.value = formatDateInput(lastDay);
 
         await loadBudgetData(currentMonth);
         await loadDashboard();
         await loadExpenseDetails();
+        await loadManagementRecords('expense');
+        await loadManagementRecords('income');
     };
 
     function setupEventHandlers() {
@@ -79,6 +173,65 @@
         document.getElementById('detailFilterForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             await loadExpenseDetails();
+        });
+
+        ['expense', 'income'].forEach(type => {
+            const state = managementState[type];
+            const config = state.config;
+            const filterForm = document.getElementById(config.manageForm);
+            if (filterForm) {
+                filterForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await loadManagementRecords(type);
+                });
+            }
+
+            const bulkDeleteBtn = document.getElementById(config.bulkDeleteBtn);
+            if (bulkDeleteBtn) {
+                bulkDeleteBtn.addEventListener('click', () => bulkDelete(type));
+            }
+
+            const bulkCategoryBtn = document.getElementById(config.bulkCategoryBtn);
+            if (bulkCategoryBtn) {
+                bulkCategoryBtn.addEventListener('click', () => openBulkCategoryModal(type));
+            }
+
+            const bulkForm = document.getElementById(config.bulkForm);
+            if (bulkForm) {
+                bulkForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await submitBulkCategory(type);
+                });
+            }
+
+            const editForm = document.getElementById(config.editForm);
+            if (editForm) {
+                editForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await submitEditForm(type);
+                });
+            }
+
+            const selectAll = document.getElementById(config.selectAll);
+            if (selectAll) {
+                selectAll.addEventListener('change', (e) => toggleSelectAll(type, e.target.checked));
+            }
+        });
+    }
+
+    function initManagementComponents() {
+        if (typeof bootstrap === 'undefined') {
+            return;
+        }
+        Object.values(managementState).forEach(state => {
+            const editEl = document.getElementById(state.config.editModalId);
+            if (editEl) {
+                state.modal = bootstrap.Modal.getOrCreateInstance(editEl);
+            }
+            const bulkEl = document.getElementById(state.config.bulkModalId);
+            if (bulkEl) {
+                state.bulkModal = bootstrap.Modal.getOrCreateInstance(bulkEl);
+            }
         });
     }
 
@@ -194,6 +347,7 @@
         updateSelectForType('expense', expenseCategories);
         updateSelectForType('income', incomeCategories);
         updateAnalyticsCategoryFilters();
+        updateManagementCategoryFilters();
     }
 
     function updateSelectForType(type, categories) {
@@ -211,6 +365,37 @@
         updateMultiSelectOptions('expenseFilterCategories', expenseCategories);
         updateMultiSelectOptions('incomeFilterCategories', incomeCategories);
         updateMultiSelectOptions('detailCategories', expenseCategories);
+    }
+
+    function updateManagementCategoryFilters() {
+        updateMultiSelectOptions('expenseManageCategories', expenseCategories);
+        updateMultiSelectOptions('incomeManageCategories', incomeCategories);
+        updateSingleSelectOptions('editExpenseCategory', expenseCategories, false);
+        updateSingleSelectOptions('editIncomeCategory', incomeCategories, false);
+        updateSingleSelectOptions('bulkExpenseCategory', expenseCategories, true);
+        updateSingleSelectOptions('bulkIncomeCategory', incomeCategories, true);
+    }
+
+    function updateSingleSelectOptions(selectId, categories, includePlaceholder = false) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const previous = select.value;
+        select.innerHTML = '';
+        if (includePlaceholder) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Выберите категорию';
+            select.appendChild(placeholder);
+        }
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = String(category.id);
+            option.textContent = category.name;
+            select.appendChild(option);
+        });
+        if (previous && Array.from(select.options).some(option => option.value === previous)) {
+            select.value = previous;
+        }
     }
 
     function updateMultiSelectOptions(selectId, categories) {
@@ -538,6 +723,322 @@
             `;
             container.appendChild(item);
         });
+    }
+
+    async function loadManagementRecords(type) {
+        const state = managementState[type];
+        const config = state.config;
+        const fromInput = document.getElementById(config.manageFrom);
+        const toInput = document.getElementById(config.manageTo);
+        if (!fromInput || !toInput) {
+            return;
+        }
+        const from = fromInput.value;
+        const to = toInput.value;
+        if (!from || !to) {
+            showMessage('Выберите даты для фильтрации', 'warning');
+            return;
+        }
+        if (new Date(to) < new Date(from)) {
+            showMessage('Дата окончания не может быть раньше даты начала', 'warning');
+            return;
+        }
+
+        const params = new URLSearchParams();
+        params.set('from', from);
+        params.set('to', to);
+        getSelectedValues(config.manageCategories).forEach(id => params.append('categories', id));
+
+        try {
+            const resp = await apiFetch(`${config.endpoint}?${params.toString()}`);
+            if (!resp.ok) {
+                throw new Error(await resp.text());
+            }
+            const data = await resp.json();
+            renderManagementTable(type, data);
+        } catch (error) {
+            renderManagementTable(type, []);
+            if (error && error.message) {
+                showMessage(error.message, 'danger');
+            }
+        }
+    }
+
+    function renderManagementTable(type, records) {
+        const state = managementState[type];
+        const config = state.config;
+        const tbody = document.getElementById(config.manageBody);
+        if (!tbody) return;
+
+        const normalizedRecords = Array.isArray(records)
+            ? records.map(record => ({ ...record, id: Number(record.id) }))
+            : [];
+        state.records = normalizedRecords;
+        const availableIds = new Set(normalizedRecords.map(record => record.id));
+        state.selected = new Set([...state.selected].filter(id => availableIds.has(id)));
+
+        if (!normalizedRecords.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-muted text-center">Нет операций за выбранный период</td></tr>';
+            updateBulkActionState(type);
+            return;
+        }
+
+        tbody.innerHTML = '';
+        normalizedRecords.forEach(record => {
+            const tr = document.createElement('tr');
+            const dateValue = record[config.dateField];
+            const dateLabel = dateValue
+                ? new Date(dateValue).toLocaleDateString('ru-RU')
+                : (record.period ? formatMonthLabel(record.period) : '—');
+            const descriptionBlock = record.description
+                ? `<div class="text-muted small">${escapeHtml(record.description)}</div>`
+                : '';
+            const amountClass = type === 'expense' ? 'text-danger' : 'text-success';
+            tr.innerHTML = `
+                <td class="table-checkbox">
+                    <input class="form-check-input" type="checkbox" data-id="${record.id}">
+                </td>
+                <td>
+                    <div class="fw-semibold">${escapeHtml(record.title || '')}</div>
+                    ${descriptionBlock}
+                </td>
+                <td>${escapeHtml(record.categoryName || 'Без категории')}</td>
+                <td>${escapeHtml(dateLabel)}</td>
+                <td class="text-end ${amountClass}">${formatCurrency(record.amount)}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-secondary me-2" data-action="edit">Редактировать</button>
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete">Удалить</button>
+                </td>
+            `;
+            const checkbox = tr.querySelector('input[type="checkbox"]');
+            checkbox.checked = state.selected.has(record.id);
+            checkbox.addEventListener('change', (e) => handleRowSelection(type, record.id, e.target.checked));
+            tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditModal(type, record.id));
+            tr.querySelector('[data-action="delete"]').addEventListener('click', () => deleteRecord(type, record.id));
+            tbody.appendChild(tr);
+        });
+
+        updateBulkActionState(type);
+    }
+
+    function handleRowSelection(type, id, checked) {
+        const state = managementState[type];
+        if (checked) {
+            state.selected.add(id);
+        } else {
+            state.selected.delete(id);
+        }
+        updateBulkActionState(type);
+    }
+
+    function toggleSelectAll(type, checked) {
+        const state = managementState[type];
+        state.selected.clear();
+        const checkboxes = document.querySelectorAll(`#${state.config.manageBody} input[type="checkbox"]`);
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = checked;
+            const recordId = Number(checkbox.dataset.id);
+            if (checked && !Number.isNaN(recordId)) {
+                state.selected.add(recordId);
+            }
+        });
+        updateBulkActionState(type);
+    }
+
+    function updateBulkActionState(type) {
+        const state = managementState[type];
+        const config = state.config;
+        const hasSelection = state.selected.size > 0;
+        const bulkDeleteBtn = document.getElementById(config.bulkDeleteBtn);
+        if (bulkDeleteBtn) bulkDeleteBtn.disabled = !hasSelection;
+        const bulkCategoryBtn = document.getElementById(config.bulkCategoryBtn);
+        if (bulkCategoryBtn) bulkCategoryBtn.disabled = !hasSelection;
+        const selectAll = document.getElementById(config.selectAll);
+        if (selectAll) {
+            const total = state.records.length;
+            if (!total) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            } else {
+                selectAll.checked = state.selected.size === total;
+                selectAll.indeterminate = hasSelection && state.selected.size < total;
+            }
+        }
+    }
+
+    function openEditModal(type, id) {
+        const state = managementState[type];
+        const config = state.config;
+        const record = state.records.find(item => item.id === id);
+        if (!record || !state.modal) return;
+        document.getElementById(config.editFields.id).value = record.id;
+        document.getElementById(config.editFields.title).value = record.title || '';
+        document.getElementById(config.editFields.amount).value = toInputValue(record.amount);
+        const categorySelect = document.getElementById(config.editFields.category);
+        if (categorySelect) {
+            categorySelect.value = record.categoryId ? String(record.categoryId) : '';
+        }
+        document.getElementById(config.editFields.date).value = record[config.dateField] || '';
+        document.getElementById(config.editFields.period).value = record.period || '';
+        document.getElementById(config.editFields.description).value = record.description || '';
+        state.modal.show();
+    }
+
+    async function submitEditForm(type) {
+        const state = managementState[type];
+        const config = state.config;
+        const id = Number(document.getElementById(config.editFields.id).value);
+        const title = document.getElementById(config.editFields.title).value.trim();
+        const amountValue = document.getElementById(config.editFields.amount).value;
+        const categoryIdValue = document.getElementById(config.editFields.category).value;
+        const description = document.getElementById(config.editFields.description).value;
+        const dateValue = document.getElementById(config.editFields.date).value;
+        const periodValue = document.getElementById(config.editFields.period).value;
+
+        if (!title || !amountValue || !categoryIdValue) {
+            return showMessage('Заполните название, сумму и категорию', 'danger');
+        }
+        const amount = parseFloat(amountValue);
+        if (Number.isNaN(amount) || amount <= 0) {
+            return showMessage('Сумма должна быть больше нуля', 'danger');
+        }
+        if (!dateValue && !periodValue) {
+            return showMessage('Укажите дату или месяц', 'warning');
+        }
+        const categoryId = Number(categoryIdValue);
+        if (Number.isNaN(categoryId)) {
+            return showMessage('Выберите категорию', 'danger');
+        }
+
+        const payload = {
+            title,
+            description: description.trim() ? description.trim() : null,
+            amount,
+            categoryId
+        };
+        if (dateValue) {
+            payload[config.dateField] = dateValue;
+            payload.period = null;
+        } else {
+            payload[config.dateField] = null;
+            payload.period = periodValue;
+        }
+
+        try {
+            const resp = await apiFetch(`${config.endpoint}/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+            if (!resp.ok) {
+                throw new Error(await resp.text());
+            }
+            state.modal?.hide();
+            state.selected.delete(id);
+            showMessage(config.labels.updated, 'success');
+            await loadManagementRecords(type);
+            await loadDashboard();
+            if (type === 'expense') {
+                await loadExpenseDetails();
+            }
+        } catch (error) {
+            showMessage(error.message || 'Не удалось обновить запись', 'danger');
+        }
+    }
+
+    function openBulkCategoryModal(type) {
+        const state = managementState[type];
+        if (!state.selected.size) {
+            return;
+        }
+        const select = document.getElementById(state.config.bulkCategorySelect);
+        if (select) {
+            select.value = '';
+        }
+        state.bulkModal?.show();
+    }
+
+    async function submitBulkCategory(type) {
+        const state = managementState[type];
+        const config = state.config;
+        const select = document.getElementById(config.bulkCategorySelect);
+        if (!select) {
+            return;
+        }
+        const categoryId = Number(select.value);
+        if (!categoryId) {
+            showMessage('Выберите категорию для обновления', 'warning');
+            return;
+        }
+        const ids = [...state.selected];
+        if (!ids.length) {
+            state.bulkModal?.hide();
+            return;
+        }
+        const payload = {
+            records: ids.map(id => ({ id, categoryId }))
+        };
+        try {
+            const resp = await apiFetch(config.bulkEndpoint, { method: 'PUT', body: JSON.stringify(payload) });
+            if (!resp.ok) {
+                throw new Error(await resp.text());
+            }
+            state.bulkModal?.hide();
+            showMessage(config.labels.bulkUpdated, 'success');
+            await loadManagementRecords(type);
+            await loadDashboard();
+            if (type === 'expense') {
+                await loadExpenseDetails();
+            }
+        } catch (error) {
+            showMessage(error.message || 'Не удалось обновить категорию', 'danger');
+        }
+    }
+
+    async function bulkDelete(type) {
+        const state = managementState[type];
+        const config = state.config;
+        const ids = [...state.selected];
+        if (!ids.length) {
+            return;
+        }
+        if (!confirm('Удалить выбранные записи?')) {
+            return;
+        }
+        try {
+            const resp = await apiFetch(config.bulkDeleteEndpoint, { method: 'POST', body: JSON.stringify({ ids }) });
+            if (!resp.ok) {
+                throw new Error(await resp.text());
+            }
+            showMessage(config.labels.bulkDeleted, 'success');
+            state.selected.clear();
+            await loadManagementRecords(type);
+            await loadDashboard();
+            if (type === 'expense') {
+                await loadExpenseDetails();
+            }
+        } catch (error) {
+            showMessage(error.message || 'Не удалось удалить записи', 'danger');
+        }
+    }
+
+    async function deleteRecord(type, id) {
+        const state = managementState[type];
+        const config = state.config;
+        if (!confirm('Удалить запись?')) {
+            return;
+        }
+        try {
+            const resp = await apiFetch(`${config.endpoint}/${id}`, { method: 'DELETE' });
+            if (!resp.ok) {
+                throw new Error(await resp.text());
+            }
+            showMessage(config.labels.deleted, 'success');
+            state.selected.delete(id);
+            await loadManagementRecords(type);
+            await loadDashboard();
+            if (type === 'expense') {
+                await loadExpenseDetails();
+            }
+        } catch (error) {
+            showMessage(error.message || 'Не удалось удалить запись', 'danger');
+        }
     }
 
     function renderPieChart(elementId, totals, label, legendId) {

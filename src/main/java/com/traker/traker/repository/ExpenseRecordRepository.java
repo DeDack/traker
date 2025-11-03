@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord, Long> {
@@ -121,4 +122,13 @@ public interface ExpenseRecordRepository extends DefaultRepository<ExpenseRecord
                                                           @Param("categoryIds") List<Long> categoryIds);
 
     boolean existsByUserAndCategory_Id(User user, Long categoryId);
+
+    Optional<ExpenseRecord> findByIdAndUser(Long id, User user);
+
+    @Query("""
+            SELECT er FROM ExpenseRecord er
+            WHERE er.user = :user AND er.id IN :ids
+            """)
+    List<ExpenseRecord> findByUserAndIdIn(@Param("user") User user,
+                                          @Param("ids") List<Long> ids);
 }

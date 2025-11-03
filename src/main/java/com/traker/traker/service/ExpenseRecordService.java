@@ -1,13 +1,16 @@
 package com.traker.traker.service;
 
 import com.traker.traker.dto.expense.ExpenseBatchCreateRequestDto;
+import com.traker.traker.dto.expense.ExpenseBatchUpdateRequestDto;
 import com.traker.traker.dto.expense.ExpenseRecordRequestDto;
 import com.traker.traker.dto.expense.ExpenseRecordResponseDto;
+import com.traker.traker.dto.expense.ExpenseRecordUpdateDto;
 import com.traker.traker.dto.expense.ExpenseSummaryDto;
 import com.traker.traker.entity.ExpenseCategory;
 import com.traker.traker.entity.ExpenseRecord;
 import com.traker.traker.entity.User;
 import com.traker.traker.exception.ExpenseCategoryNotFoundException;
+import com.traker.traker.exception.ExpenseRecordNotFoundException;
 import com.traker.traker.mapper.ExpenseRecordMapper;
 import com.traker.traker.repository.ExpenseCategoryRepository;
 import com.traker.traker.repository.ExpenseRecordRepository;
@@ -30,6 +33,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.traker.traker.utils.FinanceUtils.FinanceFilter;
@@ -59,6 +64,70 @@ public class ExpenseRecordService {
 
         List<ExpenseRecord> saved = expenseRecordRepository.saveAll(records);
         return expenseRecordMapper.toDtoList(saved);
+    }
+
+    @Transactional
+    public ExpenseRecordResponseDto updateExpense(Long id, ExpenseRecordRequestDto request) {
+        User currentUser = getCurrentUser();
+        ExpenseRecord record = expenseRecordRepository.findByIdAndUser(id, currentUser)
+                .orElseThrow(() -> new ExpenseRecordNotFoundException(id));
+
+        applyFullUpdate(record, request, currentUser);
+        ExpenseRecord saved = expenseRecordRepository.save(record);
+        return expenseRecordMapper.toDto(saved);
+    }
+
+    @Transactional
+    public List<ExpenseRecordResponseDto> updateExpenses(ExpenseBatchUpdateRequestDto request) {
+        User currentUser = getCurrentUser();
+        List<ExpenseRecordUpdateDto> updates = request.getRecords();
+        if (updates == null || updates.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> ids = updates.stream()
+                .map(ExpenseRecordUpdateDto::getId)
+                .collect(Collectors.toSet());
+
+        Map<Long, ExpenseRecord> existing = expenseRecordRepository.findByUserAndIdIn(currentUser, new ArrayList<>(ids)).stream()
+                .collect(Collectors.toMap(ExpenseRecord::getId, Function.identity()));
+
+        for (ExpenseRecordUpdateDto updateDto : updates) {
+            ExpenseRecord record = existing.get(updateDto.getId());
+            if (record == null) {
+                throw new ExpenseRecordNotFoundException(updateDto.getId());
+            }
+            applyPartialUpdate(record, updateDto, currentUser);
+        }
+
+        expenseRecordRepository.saveAll(existing.values());
+        return updates.stream()
+                .map(update -> expenseRecordMapper.toDto(existing.get(update.getId())))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteExpense(Long id) {
+        User currentUser = getCurrentUser();
+        ExpenseRecord record = expenseRecordRepository.findByIdAndUser(id, currentUser)
+                .orElseThrow(() -> new ExpenseRecordNotFoundException(id));
+        expenseRecordRepository.delete(record);
+    }
+
+    @Transactional
+    public void deleteExpenses(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        User currentUser = getCurrentUser();
+        List<ExpenseRecord> records = expenseRecordRepository.findByUserAndIdIn(currentUser, ids);
+        long requested = ids.stream().distinct().count();
+        if (records.size() != requested) {
+            Set<Long> foundIds = records.stream().map(ExpenseRecord::getId).collect(Collectors.toSet());
+            Long missing = ids.stream().filter(id -> !foundIds.contains(id)).findFirst().orElse(null);
+            throw new ExpenseRecordNotFoundException(missing);
+        }
+        expenseRecordRepository.deleteAll(records);
     }
 
     @Transactional(readOnly = true)
@@ -147,7 +216,11 @@ public class ExpenseRecordService {
         if (categoryIds == null || categoryIds.isEmpty()) {
             return null;
         }
-        return categoryIds;
+        List<Long> distinct = categoryIds.stream()
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        return distinct.isEmpty() ? null : distinct;
     }
 
     private List<ExpenseSummaryDto.CategoryMonthlySummaryDto> buildCategoryMonthlySummary(List<CategoryPeriodAmountView> categoryPeriodTotals) {
@@ -179,12 +252,71 @@ public class ExpenseRecordService {
         ExpenseRecord record = new ExpenseRecord();
         record.setUser(currentUser);
         record.setCategory(category);
-        record.setTitle(dto.getTitle());
-        record.setDescription(dto.getDescription());
+        record.setTitle(dto.getTitle().trim());
+        record.setDescription(normalizeDescription(dto.getDescription()));
         record.setAmount(normalizeAmount(dto.getAmount()));
         record.setPeriod(period.atDay(1));
         record.setExpenseDate(expenseDate);
         return record;
+    }
+
+    private void applyFullUpdate(ExpenseRecord record, ExpenseRecordRequestDto dto, User currentUser) {
+        ExpenseCategory category = expenseCategoryRepository.findByIdAndUser(dto.getCategoryId(), currentUser)
+                .orElseThrow(() -> new ExpenseCategoryNotFoundException(dto.getCategoryId()));
+
+        LocalDate expenseDate = dto.getExpenseDate();
+        YearMonth period = resolvePeriod(dto, null, expenseDate);
+
+        record.setCategory(category);
+        record.setTitle(dto.getTitle().trim());
+        record.setDescription(normalizeDescription(dto.getDescription()));
+        record.setAmount(normalizeAmount(dto.getAmount()));
+        record.setExpenseDate(expenseDate);
+        record.setPeriod(period.atDay(1));
+    }
+
+    private void applyPartialUpdate(ExpenseRecord record, ExpenseRecordUpdateDto dto, User currentUser) {
+        if (dto.getTitle() != null) {
+            if (dto.getTitle().isBlank()) {
+                throw new IllegalArgumentException("Название траты не может быть пустым");
+            }
+            record.setTitle(dto.getTitle().trim());
+        }
+
+        if (dto.getDescription() != null) {
+            record.setDescription(normalizeDescription(dto.getDescription()));
+        }
+
+        if (dto.getAmount() != null) {
+            record.setAmount(normalizeAmount(dto.getAmount()));
+        }
+
+        if (dto.getCategoryId() != null) {
+            ExpenseCategory category = expenseCategoryRepository.findByIdAndUser(dto.getCategoryId(), currentUser)
+                    .orElseThrow(() -> new ExpenseCategoryNotFoundException(dto.getCategoryId()));
+            record.setCategory(category);
+        }
+
+        if (dto.getExpenseDate() != null) {
+            LocalDate expenseDate = dto.getExpenseDate();
+            record.setExpenseDate(expenseDate);
+            record.setPeriod(expenseDate.withDayOfMonth(1));
+        } else if (dto.getPeriod() != null) {
+            if (dto.getPeriod().isBlank()) {
+                throw new IllegalArgumentException("Период должен быть указан в формате yyyy-MM");
+            }
+            YearMonth period = parsePeriod(dto.getPeriod());
+            record.setExpenseDate(null);
+            record.setPeriod(period.atDay(1));
+        }
+    }
+
+    private String normalizeDescription(String description) {
+        if (description == null) {
+            return null;
+        }
+        String trimmed = description.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private YearMonth resolvePeriod(ExpenseRecordRequestDto dto, YearMonth defaultPeriod, LocalDate expenseDate) {

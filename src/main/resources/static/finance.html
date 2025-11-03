@@ -62,6 +62,15 @@
             font-size: 0.85rem;
             color: #6c757d;
         }
+        .table-checkbox {
+            width: 40px;
+        }
+        .operations-actions {
+            gap: 0.5rem;
+        }
+        .operations-actions .btn {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -394,8 +403,243 @@
             </div>
         </div>
     </div>
+    <div class="section-card">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
+            <div>
+                <h2 class="section-title">Управление операциями</h2>
+                <p class="text-muted mb-0">Редактируйте и удаляйте доходы и расходы, применяйте массовые действия к выбранным записям</p>
+            </div>
+        </div>
+        <ul class="nav nav-pills mb-3" id="financeOperationsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="expenseOperationsTab" data-bs-toggle="pill" data-bs-target="#expenseOperations" type="button" role="tab" aria-controls="expenseOperations" aria-selected="true">Расходы</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="incomeOperationsTab" data-bs-toggle="pill" data-bs-target="#incomeOperations" type="button" role="tab" aria-controls="incomeOperations" aria-selected="false">Доходы</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="financeOperationsContent">
+            <div class="tab-pane fade show active" id="expenseOperations" role="tabpanel" aria-labelledby="expenseOperationsTab">
+                <form id="expenseManageFilterForm" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1" for="expenseManageFrom">С даты</label>
+                        <input type="date" class="form-control" id="expenseManageFrom" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1" for="expenseManageTo">По дату</label>
+                        <input type="date" class="form-control" id="expenseManageTo" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted mb-1" for="expenseManageCategories">Категории расходов</label>
+                        <select id="expenseManageCategories" class="form-select multi-select" multiple size="4"></select>
+                        <div class="form-text">Если категории не выбраны, используются все</div>
+                    </div>
+                    <div class="col-md-2 align-self-end">
+                        <button type="submit" class="btn btn-primary pill-button w-100">Обновить список</button>
+                    </div>
+                </form>
+                <div class="d-flex flex-wrap operations-actions mt-3">
+                    <button type="button" class="btn btn-outline-danger" id="expenseBulkDelete" disabled>Удалить выбранные</button>
+                    <button type="button" class="btn btn-outline-secondary" id="expenseBulkCategoryBtn" disabled>Изменить категорию</button>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                        <tr>
+                            <th class="table-checkbox"><input class="form-check-input" type="checkbox" id="expenseSelectAll"></th>
+                            <th>Название</th>
+                            <th>Категория</th>
+                            <th>Дата / месяц</th>
+                            <th class="text-end">Сумма</th>
+                            <th class="text-end">Действия</th>
+                        </tr>
+                        </thead>
+                        <tbody id="expenseManageBody">
+                        <tr><td colspan="6" class="text-muted text-center">Выберите период и обновите список</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="incomeOperations" role="tabpanel" aria-labelledby="incomeOperationsTab">
+                <form id="incomeManageFilterForm" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1" for="incomeManageFrom">С даты</label>
+                        <input type="date" class="form-control" id="incomeManageFrom" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1" for="incomeManageTo">По дату</label>
+                        <input type="date" class="form-control" id="incomeManageTo" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted mb-1" for="incomeManageCategories">Категории доходов</label>
+                        <select id="incomeManageCategories" class="form-select multi-select" multiple size="4"></select>
+                        <div class="form-text">Если категории не выбраны, используются все</div>
+                    </div>
+                    <div class="col-md-2 align-self-end">
+                        <button type="submit" class="btn btn-primary pill-button w-100">Обновить список</button>
+                    </div>
+                </form>
+                <div class="d-flex flex-wrap operations-actions mt-3">
+                    <button type="button" class="btn btn-outline-danger" id="incomeBulkDelete" disabled>Удалить выбранные</button>
+                    <button type="button" class="btn btn-outline-secondary" id="incomeBulkCategoryBtn" disabled>Изменить категорию</button>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                        <tr>
+                            <th class="table-checkbox"><input class="form-check-input" type="checkbox" id="incomeSelectAll"></th>
+                            <th>Название</th>
+                            <th>Категория</th>
+                            <th>Дата / месяц</th>
+                            <th class="text-end">Сумма</th>
+                            <th class="text-end">Действия</th>
+                        </tr>
+                        </thead>
+                        <tbody id="incomeManageBody">
+                        <tr><td colspan="6" class="text-muted text-center">Выберите период и обновите список</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+<div class="modal fade" id="editExpenseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form class="modal-content" id="editExpenseForm">
+            <div class="modal-header">
+                <h5 class="modal-title">Редактирование траты</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editExpenseId">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="editExpenseTitle">Название</label>
+                        <input type="text" class="form-control" id="editExpenseTitle" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editExpenseAmount">Сумма</label>
+                        <input type="number" class="form-control" id="editExpenseAmount" min="0" step="0.01" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editExpenseCategory">Категория</label>
+                        <select class="form-select" id="editExpenseCategory" required></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editExpenseDate">Точная дата</label>
+                        <input type="date" class="form-control" id="editExpenseDate">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editExpensePeriod">Месяц (если без даты)</label>
+                        <input type="month" class="form-control" id="editExpensePeriod">
+                        <div class="form-text">Укажите либо дату, либо месяц. Если указана дата, месяц выставится автоматически.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="editExpenseDescription">Описание</label>
+                        <textarea class="form-control" id="editExpenseDescription" rows="2" placeholder="Необязательно"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="editIncomeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form class="modal-content" id="editIncomeForm">
+            <div class="modal-header">
+                <h5 class="modal-title">Редактирование дохода</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editIncomeId">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="editIncomeTitle">Название</label>
+                        <input type="text" class="form-control" id="editIncomeTitle" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editIncomeAmount">Сумма</label>
+                        <input type="number" class="form-control" id="editIncomeAmount" min="0" step="0.01" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editIncomeCategory">Категория</label>
+                        <select class="form-select" id="editIncomeCategory" required></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editIncomeDate">Точная дата</label>
+                        <input type="date" class="form-control" id="editIncomeDate">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="editIncomePeriod">Месяц (если без даты)</label>
+                        <input type="month" class="form-control" id="editIncomePeriod">
+                        <div class="form-text">Укажите либо дату, либо месяц. Если указана дата, месяц выставится автоматически.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="editIncomeDescription">Описание</label>
+                        <textarea class="form-control" id="editIncomeDescription" rows="2" placeholder="Необязательно"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="expenseBulkCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" id="expenseBulkCategoryForm">
+            <div class="modal-header">
+                <h5 class="modal-title">Изменить категорию расходов</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label" for="bulkExpenseCategory">Категория</label>
+                    <select id="bulkExpenseCategory" class="form-select" required></select>
+                </div>
+                <p class="text-muted small mb-0">Категория будет применена ко всем выбранным тратам.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" class="btn btn-primary">Применить</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="incomeBulkCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" id="incomeBulkCategoryForm">
+            <div class="modal-header">
+                <h5 class="modal-title">Изменить категорию доходов</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label" for="bulkIncomeCategory">Категория</label>
+                    <select id="bulkIncomeCategory" class="form-select" required></select>
+                </div>
+                <p class="text-muted small mb-0">Категория будет применена ко всем выбранным доходам.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" class="btn btn-primary">Применить</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="scripts.js"></script>
 <script src="finance.js"></script>

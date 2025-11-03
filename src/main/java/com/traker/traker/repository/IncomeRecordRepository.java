@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface IncomeRecordRepository extends DefaultRepository<IncomeRecord, Long> {
@@ -121,4 +122,13 @@ public interface IncomeRecordRepository extends DefaultRepository<IncomeRecord, 
                                                           @Param("categoryIds") List<Long> categoryIds);
 
     boolean existsByUserAndCategory_Id(User user, Long categoryId);
+
+    Optional<IncomeRecord> findByIdAndUser(Long id, User user);
+
+    @Query("""
+            SELECT ir FROM IncomeRecord ir
+            WHERE ir.user = :user AND ir.id IN :ids
+            """)
+    List<IncomeRecord> findByUserAndIdIn(@Param("user") User user,
+                                         @Param("ids") List<Long> ids);
 }
