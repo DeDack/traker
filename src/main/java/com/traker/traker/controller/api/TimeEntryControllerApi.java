@@ -14,5 +14,5 @@ public interface TimeEntryControllerApi {
     @ApiResponse(responseCode = "200", description = "Успешная отправка статуса открытия счёта")
     @ApiResponse(responseCode = "400", description = "Некорректный запрос")
     @ApiResponse(responseCode = "500", description = "Внутренняя ошибка сервера")
-    int getDailyStats(@RequestParam("date") String date);
+    double getDailyStats(@RequestParam("date") String date);
 }

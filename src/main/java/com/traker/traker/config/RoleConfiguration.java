@@ -25,7 +25,9 @@ public class RoleConfiguration {
                         "/index.html",
                         "/login.html",
                         "/register.html",
-                        "/scripts.js"
+                        "/finance.html",
+                        "/scripts.js",
+                        "/finance.js"
                 ).permitAll()
 
                 // Эндпоинты управления пользователями — доступ только USER и выше
@@ -45,6 +47,15 @@ public class RoleConfiguration {
                 .requestMatchers(
                         "/api/stats/daily",
                         "/api/days/**"
+                ).hasAnyRole("USER", "MODERATOR", "ADMIN")
+
+                // Эндпоинты для управления тратами — доступ USER и выше
+                .requestMatchers(
+                        "/api/expense-categories/**",
+                        "/api/expenses/**",
+                        "/api/income-categories/**",
+                        "/api/incomes/**",
+                        "/api/budgets/**"
                 ).hasAnyRole("USER", "MODERATOR", "ADMIN")
 
                 // Остальные запросы требуют авторизации

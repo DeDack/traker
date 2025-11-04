@@ -1,6 +1,11 @@
 let statusOptions = [];
-const STATUS_ORDER_KEY = 'statusOrder';
 let editingEntry = null;
+let currentEntries = [];
+const timeCharts = { donut: null, bar: null };
+let classicEntryModal = null;
+const classicModalState = {
+    elements: null
+};
 
 function pad(num) {
     return String(num).padStart(2, '0');
@@ -150,9 +155,10 @@ async function fetchStatuses() {
     try {
         const resp = await apiFetch('/api/statuses/getAllStatuses');
         if (resp.ok) {
-            statusOptions = await resp.json();
-            applySavedOrder();
+            const raw = await resp.json();
+            statusOptions = normalizeStatusOrderList(raw);
             populateStatusSelect();
+            displayStatuses();
         } else {
             showMessage('Ошибка загрузки статусов', 'danger');
         }
@@ -161,30 +167,84 @@ async function fetchStatuses() {
     }
 }
 
-function applySavedOrder() {
-    const saved = localStorage.getItem(STATUS_ORDER_KEY);
-    if (!saved) return;
-    try {
-        const order = JSON.parse(saved).filter(id => statusOptions.some(s => s.id === id));
-        statusOptions.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-    } catch {}
+function normalizeStatusOrderList(statuses) {
+    const sorted = statuses
+        .map((status, idx) => ({
+            ...status,
+            order: Number.isFinite(Number(status.order)) ? Number(status.order) : idx
+        }))
+        .sort((a, b) => {
+            const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+            if (orderDiff !== 0) return orderDiff;
+            return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
+        });
+    return sorted.map((status, idx) => ({ ...status, order: idx }));
 }
 
-async function saveCurrentOrder() {
-    localStorage.setItem(STATUS_ORDER_KEY, JSON.stringify(statusOptions.map(s => s.id)));
-    for (let i = 0; i < statusOptions.length; i++) {
-        const payload = { name: statusOptions[i].name, order: i };
-        await apiFetch(`/api/statuses/updateStatus/${statusOptions[i].id}`, {
+async function saveCurrentOrder(showNotification = true) {
+    reindexLocalStatuses();
+    for (const status of statusOptions) {
+        const payload = { name: status.name, order: status.order };
+        await apiFetch(`/api/statuses/updateStatus/${status.id}`, {
             method: 'PUT',
             body: JSON.stringify(payload)
         });
     }
+    if (showNotification) {
+        showMessage('Порядок статусов сохранён', 'success');
+    }
+}
+
+function reindexLocalStatuses() {
+    statusOptions.forEach((status, idx) => {
+        status.order = idx;
+    });
 }
 
 function populateStatusSelect() {
     const select = document.getElementById('status');
     if (!select) return;
-    select.innerHTML = '<option value="">—</option>' + statusOptions.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+    select.innerHTML = '<option value="">—</option>' + statusOptions
+        .map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`)
+        .join('');
+    populateClassicStatusSelect();
+    populateStatusFilter();
+}
+
+function populateStatusFilter() {
+    const filter = document.getElementById('statusFilter');
+    if (!filter) return;
+    const previouslySelected = new Set(Array.from(filter.selectedOptions).map(o => Number(o.value)));
+    filter.innerHTML = '';
+    statusOptions.forEach(status => {
+        const option = document.createElement('option');
+        option.value = status.id;
+        option.textContent = status.name;
+        if (previouslySelected.size === 0 || previouslySelected.has(status.id)) {
+            option.selected = true;
+        }
+        filter.appendChild(option);
+    });
+    const noneOption = document.createElement('option');
+    noneOption.value = '-1';
+    noneOption.textContent = 'Без статуса';
+    if (previouslySelected.size === 0 || previouslySelected.has(-1)) {
+        noneOption.selected = true;
+    }
+    filter.appendChild(noneOption);
+    updateCharts();
+}
+
+function populateClassicStatusSelect(selectedId) {
+    if (!classicModalState.elements || !classicModalState.elements.status) {
+        return;
+    }
+    const statusSelect = classicModalState.elements.status;
+    const currentValue = selectedId !== undefined ? String(selectedId ?? '') : statusSelect.value;
+    statusSelect.innerHTML = '<option value="">—</option>' + statusOptions
+        .map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`)
+        .join('');
+    statusSelect.value = currentValue || '';
 }
 
 function displayStatuses() {
@@ -209,14 +269,20 @@ function displayStatuses() {
         row.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', idx));
         row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('table-primary'); });
         row.addEventListener('dragleave', () => row.classList.remove('table-primary'));
-        row.addEventListener('drop', e => {
+        row.addEventListener('drop', async e => {
             e.preventDefault();
             row.classList.remove('table-primary');
-            const from = +e.dataTransfer.getData('text/plain');
-            const to = +row.dataset.index;
-            [statusOptions[from], statusOptions[to]] = [statusOptions[to], statusOptions[from]];
-            saveCurrentOrder();
+            const from = Number(e.dataTransfer.getData('text/plain'));
+            const to = Number(row.dataset.index);
+            if (Number.isNaN(from) || Number.isNaN(to) || from === to) {
+                return;
+            }
+            const [moved] = statusOptions.splice(from, 1);
+            statusOptions.splice(to, 0, moved);
+            reindexLocalStatuses();
             displayStatuses();
+            populateStatusSelect();
+            await saveCurrentOrder(false);
         });
 
         tbody.appendChild(row);
@@ -226,16 +292,17 @@ function displayStatuses() {
 async function addStatus() {
     const name = document.getElementById('newStatusName')?.value.trim();
     if (!name) return;
+    const nextOrder = statusOptions.length
+        ? Math.max(...statusOptions.map(s => s.order ?? 0)) + 1
+        : 0;
     const resp = await apiFetch('/api/statuses/createStatus', {
         method: 'POST',
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, order: nextOrder })
     });
     if (resp.ok) {
         document.getElementById('newStatusName').value = '';
         await fetchStatuses();
-        displayStatuses();
         await loadDayData();
-        await updateWorkedHours();
     } else {
         showMessage('Ошибка добавления', 'danger');
     }
@@ -244,15 +311,15 @@ async function addStatus() {
 async function updateStatus(id) {
     const name = document.querySelector(`input[data-id="${id}"]`)?.value.trim();
     if (!name) return;
+    const status = statusOptions.find(s => s.id === id);
+    const order = status ? status.order : null;
     const resp = await apiFetch(`/api/statuses/updateStatus/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, order })
     });
     if (resp.ok) {
         await fetchStatuses();
-        displayStatuses();
         await loadDayData();
-        await updateWorkedHours();
     } else {
         showMessage('Ошибка обновления', 'danger');
     }
@@ -262,9 +329,7 @@ async function deleteStatus(id) {
     const resp = await apiFetch(`/api/statuses/deleteStatus/${id}`, { method: 'DELETE' });
     if (resp.ok) {
         await fetchStatuses();
-        displayStatuses();
         await loadDayData();
-        await updateWorkedHours();
     } else {
         showMessage('Ошибка удаления', 'danger');
     }
@@ -276,35 +341,112 @@ async function loadDayData() {
     if (!date) return;
     try {
         const resp = await apiFetch(`/api/days/${date}`);
-        const entries = resp.ok ? await resp.json() : [];
-        renderHourlyEntries(entries);
+        currentEntries = resp.ok ? await resp.json() : [];
     } catch {
-        renderHourlyEntries([]);
+        currentEntries = [];
     }
+    editingEntry = null;
+    renderHourlyEntries(currentEntries);
+    renderTimeEntryCards(currentEntries);
+    updateWorkedHours();
+    updateCharts();
+}
+
+
+function formatTimeValue(hour, minute) {
+    return `${pad(hour)}:${pad(minute)}`;
+}
+
+function defaultStartForHour(hour) {
+    return `${pad(hour)}:00`;
+}
+
+function defaultEndForHour(hour) {
+    return hour === 23 ? '23:59' : `${pad(hour + 1)}:00`;
+}
+
+function parseTimeInput(value) {
+    if (!value) return null;
+    const [hour, minute] = value.split(':').map(Number);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+    return { hour, minute };
+}
+
+function buildEntryPayload(startValue, endValue, worked, comment, statusId, overrideId) {
+    const start = parseTimeInput(startValue);
+    const end = parseTimeInput(endValue);
+
+    if (!start || !end) {
+        throw new Error('Укажите корректное время начала и окончания');
+    }
+
+    if (end.hour < start.hour || (end.hour === start.hour && end.minute <= start.minute)) {
+        throw new Error('Время окончания должно быть позже времени начала');
+    }
+
+    const sanitizedComment = comment ? comment.trim() : '';
+    const hasStatus = statusId !== undefined && statusId !== null && statusId !== '';
+    const numericStatusId = hasStatus ? Number(statusId) : null;
+
+    if (hasStatus && Number.isNaN(numericStatusId)) {
+        throw new Error('Некорректный идентификатор статуса');
+    }
+
+    let resolvedId;
+    if (overrideId !== undefined) {
+        resolvedId = overrideId;
+    } else {
+        resolvedId = editingEntry && typeof editingEntry.id === 'number' ? editingEntry.id : null;
+    }
+
+    return {
+        id: resolvedId,
+        hour: start.hour,
+        minute: start.minute,
+        endHour: end.hour,
+        endMinute: end.minute,
+        worked: Boolean(worked),
+        comment: sanitizedComment,
+        status: numericStatusId !== null ? { id: numericStatusId } : null
+    };
 }
 
 function renderHourlyEntries(entries) {
     const table = document.getElementById('timeEntriesTable');
     if (!table) return;
     table.innerHTML = '';
+    const entriesByHour = new Map();
+    entries.forEach(entry => {
+        const bucket = Math.min(23, Math.floor((entry.hour * 60 + entry.minute) / 60));
+        if (!entriesByHour.has(bucket)) {
+            entriesByHour.set(bucket, entry);
+        }
+    });
+
     for (let hour = 0; hour < 24; hour++) {
-        const entry = entries.find(e => e.hour === hour && e.minute === 0) || {};
-        const comment = escapeHtml(entry.comment || '');
-        const statusName = entry.status ? entry.status.name : '';
+        const entry = entriesByHour.get(hour) || null;
+        const startValue = entry ? formatTimeValue(entry.hour, entry.minute) : defaultStartForHour(hour);
+        const endValue = entry ? formatTimeValue(entry.endHour, entry.endMinute) : defaultEndForHour(hour);
         const row = document.createElement('tr');
+        row.dataset.hour = hour;
+        row.dataset.entryId = entry && entry.id != null ? entry.id : '';
         row.innerHTML = `
-            <td>${hour}:00</td>
-            <td><input type="checkbox" data-hour="${hour}" ${entry.worked ? 'checked' : ''}></td>
-            <td><input type="text" data-hour="${hour}" value="${comment}"></td>
+            <td>${pad(hour)}:00</td>
+            <td><input type="time" class="form-control form-control-sm" data-field="start" value="${startValue}"></td>
+            <td><input type="time" class="form-control form-control-sm" data-field="end" value="${endValue}"></td>
+            <td class="text-center"><input type="checkbox" data-field="worked" ${entry && entry.worked ? 'checked' : ''}></td>
+            <td><input type="text" class="form-control form-control-sm" data-field="comment" value="${escapeHtml(entry?.comment || '')}"></td>
             <td>
-                <select data-hour="${hour}">
+                <select class="form-select form-select-sm" data-field="status">
                     <option value=""></option>
-                    ${statusOptions.map(s => `<option value="${escapeHtml(s.name)}" ${statusName === s.name ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+                    ${statusOptions.map(s => `<option value="${s.id}" ${entry?.status && entry.status.id === s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
                 </select>
             </td>
             <td>
-                <button class="btn btn-sm btn-success" onclick="saveTimeEntry(${hour})">💾</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTimeEntry(${hour})">🗑️</button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-success" onclick="saveTimeEntry(${hour})">💾</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteTimeEntry(${entry && entry.id != null ? entry.id : 'null'})" ${entry ? '' : 'disabled'}>🗑️</button>
+                </div>
             </td>
         `;
         table.appendChild(row);
@@ -314,79 +456,94 @@ function renderHourlyEntries(entries) {
 async function saveTimeEntry(hour) {
     const date = document.getElementById('datePicker')?.value;
     if (!date) return;
-    const worked = document.querySelector(`input[type="checkbox"][data-hour="${hour}"]`).checked;
-    const comment = document.querySelector(`input[type="text"][data-hour="${hour}"]`).value;
-    const statusName = document.querySelector(`select[data-hour="${hour}"]`).value;
-    const payload = { hour, minute: 0, worked, comment, status: statusName ? { name: statusName } : null };
+    const row = document.querySelector(`tr[data-hour="${hour}"]`);
+    if (!row) return;
+
+    const startInput = row.querySelector('input[data-field="start"]');
+    const endInput = row.querySelector('input[data-field="end"]');
+    const commentInput = row.querySelector('input[data-field="comment"]');
+    const statusSelect = row.querySelector('select[data-field="status"]');
+    const workedInput = row.querySelector('input[data-field="worked"]');
+
+    const rawId = row.dataset.entryId;
+    const overrideId = rawId ? Number(rawId) : null;
+    if (rawId && Number.isNaN(overrideId)) {
+        return showMessage('Некорректный идентификатор записи', 'danger');
+    }
+
+    let payload;
+    try {
+        payload = buildEntryPayload(
+            startInput.value,
+            endInput.value,
+            workedInput.checked,
+            commentInput.value,
+            statusSelect.value,
+            overrideId
+        );
+    } catch (error) {
+        return showMessage(error.message, 'danger');
+    }
+
     const resp = await apiFetch(`/api/days/${date}`, { method: 'PUT', body: JSON.stringify(payload) });
     if (resp.ok) {
-        showMessage(`Час ${hour}:00 сохранён!`, 'success');
-        await updateWorkedHours();
+        showMessage('Запись сохранена!', 'success');
+        await loadDayData();
     } else {
-        showMessage('Ошибка при сохранении', 'danger');
+        const message = await resp.text().catch(() => '');
+        showMessage(message || 'Ошибка при сохранении', 'danger');
     }
 }
 
-async function deleteTimeEntry(hour, minute = 0) {
-    const date = document.getElementById('datePicker')?.value;
-    if (!date) return;
-    const resp = await apiFetch(`/api/days/${date}/${hour}/${minute}`, { method: 'DELETE' });
+async function deleteTimeEntry(id) {
+    if (id === null || id === undefined || id === 'null' || id === '') {
+        return showMessage('Запись не выбрана', 'danger');
+    }
+    const numericId = Number(id);
+    if (Number.isNaN(numericId)) {
+        return showMessage('Некорректный идентификатор записи', 'danger');
+    }
+    const resp = await apiFetch(`/api/days/entries/${numericId}`, { method: 'DELETE' });
     if (resp.ok) {
         showMessage('Запись удалена!', 'success');
         await loadDayData();
-        await updateWorkedHours();
     } else {
-        showMessage('Ошибка при удалении', 'danger');
+        const message = await resp.text().catch(() => '');
+        showMessage(message || 'Ошибка при удалении', 'danger');
     }
 }
 
-// --------- Minute-based tracker ---------
-async function loadNewDayData() {
-    const date = document.getElementById('datePicker')?.value;
-    if (!date) return;
-    try {
-        const resp = await apiFetch(`/api/days/${date}`);
-        const entries = resp.ok ? await resp.json() : [];
-        renderNewTimeEntries(entries);
-    } catch {
-        renderNewTimeEntries([]);
-    }
-}
-
-function parseInterval(comment) {
-    if (!comment) return { interval: '', text: '' };
-    const m = comment.match(/^(\d{2}:\d{2}-\d{2}:\d{2})(?:\s*:\s*(.*))?$/);
-    if (m) return { interval: m[1], text: m[2] || '' };
-    return { interval: '', text: comment };
-}
-
-function renderNewTimeEntries(entries) {
+function renderTimeEntryCards(entries) {
     const list = document.getElementById('timeEntriesList');
     if (!list) return;
     list.innerHTML = '';
-    entries.sort((a,b)=>(a.hour*60+a.minute)-(b.hour*60+b.minute))
+    entries
+        .slice()
+        .sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute))
         .forEach(entry => {
-            const { interval, text } = parseInterval(entry.comment);
+            const start = formatTimeValue(entry.hour, entry.minute);
+            const end = formatTimeValue(entry.endHour, entry.endMinute);
+            const duration = formatDuration(computeEntryMinutes(entry));
             const card = document.createElement('div');
             card.className = 'col fade-in compact-card';
             card.innerHTML = `
-                <div class="card h-100">
+                <div class="card h-100 shadow-sm">
                     <div class="card-body">
-                        <h5 class="card-title">${interval || `${pad(entry.hour)}:${pad(entry.minute)}-${pad(entry.hour+1)}:${pad(entry.minute)}`}</h5>
-                        <p class="card-text">${escapeHtml(text)}</p>
-                        <p class="card-text"><small class="text-muted">Статус: ${entry.status ? escapeHtml(entry.status.name) : '—'}</small></p>
-                        <p class="card-text"><small class="text-muted">Отработано: ${entry.worked ? 'Да' : 'Нет'}</small></p>
+                        <h5 class="card-title">${start} — ${end}</h5>
+                        <p class="card-text mb-1">${escapeHtml(entry.comment || 'Без комментария')}</p>
+                        <p class="card-text mb-1"><small class="text-muted">Статус: ${entry.status ? escapeHtml(entry.status.name) : '—'}</small></p>
+                        <p class="card-text"><small class="text-muted">Продолжительность: ${duration}${entry.worked ? ' • учтено' : ''}</small></p>
                     </div>
-                    <div class="card-footer d-flex justify-content-end">
-                        <button class="btn btn-primary btn-sm me-2"
-                            data-hour="${entry.hour}"
-                            data-minute="${entry.minute}"
-                            data-interval="${encodeURIComponent(interval)}"
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <button class="btn btn-primary btn-sm"
+                            data-id="${entry.id}"
+                            data-start="${start}"
+                            data-end="${end}"
                             data-worked="${entry.worked}"
-                            data-comment="${encodeURIComponent(text)}"
-                            data-status="${entry.status ? encodeURIComponent(entry.status.name) : ''}"
+                            data-comment="${encodeURIComponent(entry.comment || '')}"
+                            data-status-id="${entry.status ? entry.status.id : ''}"
                             onclick="editTimeEntry(this)">Редактировать</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteTimeEntry(${entry.hour}, ${entry.minute})">Удалить</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTimeEntry(${entry.id})">Удалить</button>
                     </div>
                 </div>
             `;
@@ -396,80 +553,295 @@ function renderNewTimeEntries(entries) {
 
 async function addTimeEntry() {
     const date = document.getElementById('datePicker')?.value;
-    const startTime = document.getElementById('startTime')?.value;
-    const endTime = document.getElementById('endTime')?.value;
+    const startValue = document.getElementById('startTime')?.value;
+    const endValue = document.getElementById('endTime')?.value;
     const worked = document.getElementById('worked')?.checked;
     const comment = document.getElementById('comment')?.value.trim();
-    const statusName = document.getElementById('status')?.value;
+    const statusId = document.getElementById('status')?.value;
 
-    if (!date || !startTime || !endTime) return showMessage('Заполните дату и время', 'danger');
-
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
-        return showMessage('Время окончания должно быть позже начала', 'danger');
+    if (!date || !startValue || !endValue) {
+        return showMessage('Заполните дату и время', 'danger');
     }
 
-    const interval = `${startTime}-${endTime}`;
-    const commentPayload = comment ? `${interval}: ${comment}` : interval;
-    const payload = {
-        hour: startHour,
-        minute: startMinute,
-        worked,
-        comment: commentPayload,
-        status: statusName ? { name: statusName } : null
-    };
+    let payload;
+    try {
+        payload = buildEntryPayload(startValue, endValue, worked, comment, statusId);
+    } catch (error) {
+        return showMessage(error.message, 'danger');
+    }
 
     const resp = await apiFetch(`/api/days/${date}`, { method: 'PUT', body: JSON.stringify(payload) });
     if (resp.ok) {
-        if (editingEntry && (editingEntry.hour !== startHour || editingEntry.minute !== startMinute)) {
-            await apiFetch(`/api/days/${date}/${editingEntry.hour}/${editingEntry.minute}`, { method: 'DELETE' }).catch(()=>{});
-        }
         editingEntry = null;
-        document.getElementById('startTime').value = '';
-        document.getElementById('endTime').value = '';
-        document.getElementById('worked').checked = false;
-        document.getElementById('comment').value = '';
-        document.getElementById('status').value = '';
-        await loadNewDayData();
-        await updateWorkedHours();
+        const startInput = document.getElementById('startTime');
+        const endInput = document.getElementById('endTime');
+        const workedInput = document.getElementById('worked');
+        const commentInput = document.getElementById('comment');
+        const statusSelect = document.getElementById('status');
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
+        if (workedInput) workedInput.checked = false;
+        if (commentInput) commentInput.value = '';
+        if (statusSelect) statusSelect.value = '';
+        await loadDayData();
         showMessage('Запись сохранена!', 'success');
     } else {
-        showMessage('Ошибка при сохранении', 'danger');
+        const message = await resp.text().catch(() => '');
+        showMessage(message || 'Ошибка при сохранении', 'danger');
     }
 }
+
+function getDefaultModalRange() {
+    const now = new Date();
+    const startMinutes = now.getHours() * 60 + now.getMinutes();
+    const endMinutes = Math.min(startMinutes + 60, 23 * 60 + 59);
+    const startHour = Math.floor(startMinutes / 60);
+    const startMinute = startMinutes % 60;
+    const endHour = Math.floor(endMinutes / 60);
+    const endMinute = endMinutes % 60;
+    return {
+        start: formatTimeValue(startHour, startMinute),
+        end: formatTimeValue(endHour, endMinute)
+    };
+}
+
+function openClassicEntryModal(entry = null) {
+    if (!classicEntryModal || !classicModalState.elements) return;
+    const { start, end, worked, comment, status, title, form } = classicModalState.elements;
+    if (!start || !end || !worked || !comment || !status) return;
+
+    const defaultRange = getDefaultModalRange();
+    start.value = entry ? entry.start : defaultRange.start;
+    end.value = entry ? entry.end : defaultRange.end;
+    worked.checked = entry ? Boolean(entry.worked) : false;
+    comment.value = entry ? (entry.comment || '') : '';
+    populateClassicStatusSelect(entry ? entry.statusId : undefined);
+    status.value = entry && entry.statusId ? String(entry.statusId) : '';
+    if (title) {
+        title.textContent = entry ? 'Редактирование записи' : 'Новая запись';
+    }
+    if (form) {
+        form.classList.remove('was-validated');
+    }
+    editingEntry = entry ? { id: entry.id } : null;
+    classicEntryModal.show();
+}
+
+async function saveClassicEntry() {
+    if (!classicModalState.elements) return;
+    const date = document.getElementById('datePicker')?.value;
+    if (!date) {
+        showMessage('Выберите дату', 'danger');
+        return;
+    }
+
+    const { start, end, worked, comment, status } = classicModalState.elements;
+    if (!start || !end || !worked || !comment || !status) return;
+
+    let payload;
+    try {
+        payload = buildEntryPayload(start.value, end.value, worked.checked, comment.value, status.value);
+    } catch (error) {
+        showMessage(error.message, 'danger');
+        return;
+    }
+
+    const resp = await apiFetch(`/api/days/${date}`, { method: 'PUT', body: JSON.stringify(payload) });
+    if (resp.ok) {
+        classicEntryModal.hide();
+        resetClassicModal();
+        await loadDayData();
+        showMessage('Запись сохранена!', 'success');
+    } else {
+        const message = await resp.text().catch(() => '');
+        showMessage(message || 'Ошибка при сохранении', 'danger');
+    }
+}
+
+function resetClassicModal() {
+    if (!classicModalState.elements) return;
+    const { start, end, worked, comment, status } = classicModalState.elements;
+    if (start) start.value = '';
+    if (end) end.value = '';
+    if (worked) worked.checked = false;
+    if (comment) comment.value = '';
+    if (status) status.value = '';
+    editingEntry = null;
+}
+
+function setupClassicModal() {
+    const modalEl = document.getElementById('classicEntryModal');
+    if (!modalEl || typeof bootstrap === 'undefined') {
+        return;
+    }
+    classicModalState.elements = {
+        modalEl,
+        form: modalEl.querySelector('#classicEntryForm'),
+        start: modalEl.querySelector('#classicStartTime'),
+        end: modalEl.querySelector('#classicEndTime'),
+        worked: modalEl.querySelector('#classicWorked'),
+        comment: modalEl.querySelector('#classicComment'),
+        status: modalEl.querySelector('#classicStatus'),
+        title: modalEl.querySelector('#classicModalTitle')
+    };
+    classicEntryModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    if (classicModalState.elements.form) {
+        classicModalState.elements.form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveClassicEntry();
+        });
+    }
+    modalEl.addEventListener('hidden.bs.modal', resetClassicModal);
+    const addButton = document.getElementById('openClassicModal');
+    if (addButton) {
+        addButton.addEventListener('click', () => openClassicEntryModal());
+    }
+}
+
 function editTimeEntry(btn) {
-    const { hour, minute, interval, worked, comment, status } = btn.dataset;
-    document.getElementById('startTime').value = decodeURIComponent(interval).split('-')[0];
-    document.getElementById('endTime').value = decodeURIComponent(interval).split('-')[1];
-    document.getElementById('worked').checked = worked === 'true';
-    document.getElementById('comment').value = decodeURIComponent(comment || '');
-    document.getElementById('status').value = decodeURIComponent(status || '');
-    editingEntry = { hour: parseInt(hour, 10), minute: parseInt(minute, 10) };
+    const { id, start, end, worked, comment, statusId } = btn.dataset;
+    const numericId = Number(id);
+    if (Number.isNaN(numericId)) {
+        return showMessage('Некорректный идентификатор записи', 'danger');
+    }
+
+    const startInput = document.getElementById('startTime');
+    const endInput = document.getElementById('endTime');
+    const workedInput = document.getElementById('worked');
+    const commentInput = document.getElementById('comment');
+    const statusSelect = document.getElementById('status');
+
+    if (startInput && endInput && workedInput && commentInput && statusSelect) {
+        startInput.value = start;
+        endInput.value = end;
+        workedInput.checked = worked === 'true';
+        commentInput.value = decodeURIComponent(comment || '');
+        statusSelect.value = statusId || '';
+        editingEntry = { id: numericId };
+        return;
+    }
+
+    if (classicEntryModal && classicModalState.elements) {
+        openClassicEntryModal({
+            id: numericId,
+            start,
+            end,
+            worked: worked === 'true',
+            comment: decodeURIComponent(comment || ''),
+            statusId: statusId || ''
+        });
+        return;
+    }
+
+    editingEntry = { id: numericId };
 }
 
 function computeEntryMinutes(entry) {
-    const { interval } = parseInterval(entry.comment);
-    if (interval) {
-        const [s, e] = interval.split('-');
-        const [sh, sm] = s.split(':').map(Number);
-        const [eh, em] = e.split(':').map(Number);
-        return (eh * 60 + em) - (sh * 60 + sm);
-    }
-    return entry.worked ? 60 : 0;
+    const start = entry.hour * 60 + entry.minute;
+    const end = entry.endHour * 60 + entry.endMinute;
+    return Math.max(end - start, 0);
 }
 
-async function updateWorkedHours() {
-    const date = document.getElementById('datePicker')?.value;
-    if (!date) return;
-    try {
-        const resp = await apiFetch(`/api/days/${date}`);
-        const entries = resp.ok ? await resp.json() : [];
-        const totalMinutes = entries.reduce((sum, e) => sum + computeEntryMinutes(e), 0);
-        document.getElementById('workedHours').textContent = (totalMinutes / 60).toFixed(2);
-    } catch {
-        document.getElementById('workedHours').textContent = '0';
+function formatDuration(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours && mins) return `${hours} ч ${mins} мин`;
+    if (hours) return `${hours} ч`;
+    return `${mins} мин`;
+}
+
+function updateWorkedHours() {
+    const label = document.getElementById('workedHours');
+    if (!label) return;
+    const totalMinutes = currentEntries.reduce((sum, entry) => sum + (entry.worked ? computeEntryMinutes(entry) : 0), 0);
+    const hoursDecimal = (totalMinutes / 60).toFixed(2);
+    label.textContent = `${formatDuration(totalMinutes)} (${hoursDecimal} ч)`;
+}
+
+function buildStatusAggregations(entries, filterSet) {
+    const map = new Map();
+    let total = 0;
+    entries.forEach(entry => {
+        if (!entry.worked) return;
+        const minutes = computeEntryMinutes(entry);
+        if (minutes <= 0) return;
+        const statusId = entry.status && entry.status.id != null ? Number(entry.status.id) : -1;
+        if (filterSet.size && !filterSet.has(statusId)) return;
+        const key = statusId;
+        const label = entry.status && entry.status.name ? entry.status.name : 'Без статуса';
+        if (map.has(key)) {
+            map.get(key).minutes += minutes;
+        } else {
+            map.set(key, { id: key, label, minutes });
+        }
+        total += minutes;
+    });
+    return { total, rows: Array.from(map.values()) };
+}
+
+function updateCharts() {
+    const donutCanvas = document.getElementById('timeByStatusChart');
+    const barCanvas = document.getElementById('timeByStatusBar');
+    const legend = document.getElementById('statusLegend');
+    const filter = document.getElementById('statusFilter');
+    if (!donutCanvas || !barCanvas || !legend || typeof Chart === 'undefined') return;
+
+    const filterSet = new Set();
+    if (filter) {
+        Array.from(filter.selectedOptions).forEach(opt => filterSet.add(Number(opt.value)));
     }
+
+    const aggregated = buildStatusAggregations(currentEntries, filterSet);
+    const chartPalette = ['#4c6ef5', '#15aabf', '#fab005', '#fa5252', '#5f3dc4', '#40c057', '#fd7e14', '#6f42c1', '#099268'];
+
+    if (aggregated.total === 0) {
+        legend.innerHTML = '<li class="list-group-item text-muted">Нет данных за выбранный период</li>';
+        if (timeCharts.donut) { timeCharts.donut.destroy(); timeCharts.donut = null; }
+        if (timeCharts.bar) { timeCharts.bar.destroy(); timeCharts.bar = null; }
+        return;
+    }
+
+    const labels = aggregated.rows.map(row => row.label);
+    const data = aggregated.rows.map(row => row.minutes);
+    const colors = labels.map((_, idx) => chartPalette[idx % chartPalette.length]);
+
+    if (timeCharts.donut) {
+        timeCharts.donut.data.labels = labels;
+        timeCharts.donut.data.datasets[0].data = data;
+        timeCharts.donut.data.datasets[0].backgroundColor = colors;
+        timeCharts.donut.update();
+    } else {
+        timeCharts.donut = new Chart(donutCanvas, {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data, backgroundColor: colors }] },
+            options: { plugins: { legend: { display: false } } }
+        });
+    }
+
+    if (timeCharts.bar) {
+        timeCharts.bar.data.labels = labels;
+        timeCharts.bar.data.datasets[0].data = data;
+        timeCharts.bar.data.datasets[0].backgroundColor = colors;
+        timeCharts.bar.update();
+    } else {
+        timeCharts.bar = new Chart(barCanvas, {
+            type: 'bar',
+            data: { labels, datasets: [{ data, backgroundColor: colors }] },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { ticks: { callback: value => `${value} мин` } } }
+            }
+        });
+    }
+
+    legend.innerHTML = '';
+    aggregated.rows.forEach((row, idx) => {
+        const percent = ((row.minutes / aggregated.total) * 100).toFixed(1);
+        const item = document.createElement('li');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.innerHTML = `<span><span class="badge me-2" style="background-color:${colors[idx]};">&nbsp;</span>${escapeHtml(row.label)}</span><span class="fw-semibold">${formatDuration(row.minutes)} · ${percent}%</span>`;
+        legend.appendChild(item);
+    });
 }
 
 // --------- Common ---------
@@ -483,19 +855,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const path = window.location.pathname;
     startTokenRefreshTimer();
 
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', updateCharts);
+    }
+
     if (path.endsWith('tracker.html')) {
         if (!(await isAuthenticated()) && !(await refreshAccessToken())) {
             return showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
         }
+        setupClassicModal();
         await fetchStatuses();
         await displayUsername();
         const datePicker = document.getElementById('datePicker');
         if (datePicker) {
             const today = new Date().toISOString().split('T')[0];
             datePicker.value = today;
-            datePicker.addEventListener('change', async () => { await loadDayData(); await updateWorkedHours(); });
+            datePicker.addEventListener('change', async () => { await loadDayData(); });
             await loadDayData();
-            await updateWorkedHours();
         }
         displayStatuses();
     } else if (path.endsWith('new-tracker.html')) {
@@ -508,13 +885,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (datePicker) {
             const today = new Date().toISOString().split('T')[0];
             datePicker.value = today;
-            datePicker.addEventListener('change', async () => { await loadNewDayData(); await updateWorkedHours(); });
-            await loadNewDayData();
-            await updateWorkedHours();
+            datePicker.addEventListener('change', async () => { await loadDayData(); });
+            await loadDayData();
         }
+        displayStatuses();
     } else if (path.endsWith('index.html') || path === '/') {
         if (await isAuthenticated()) window.location.href = '/tracker.html';
     } else if (path.endsWith('login.html') || path.endsWith('register.html')) {
         if (await isAuthenticated()) window.location.href = '/tracker.html';
+    } else if (path.endsWith('finance.html')) {
+        if (typeof initFinancePage === 'function') {
+            await initFinancePage();
+        }
     }
 });

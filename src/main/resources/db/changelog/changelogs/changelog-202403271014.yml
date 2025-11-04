@@ -88,3 +88,46 @@ databaseChangeLog:
                   defaultValueNumeric: 0
                   constraints:
                     nullable: false
+  - changeSet:
+      id: "12"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-expense_category.sql
+
+  - changeSet:
+      id: "13"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-expense_record.sql
+  - changeSet:
+      id: "14"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-income_category.sql
+  - changeSet:
+      id: "15"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-income_record.sql
+  - changeSet:
+      id: "16"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/create/create-budget.sql
+  - changeSet:
+      id: "17"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-time_entry-add-end-time.sql
+  - changeSet:
+      id: "18"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-status-order-index.sql

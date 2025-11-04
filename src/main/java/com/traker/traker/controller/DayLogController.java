@@ -47,4 +47,20 @@ public class DayLogController implements DayLogControllerApi {
         log.info("Обновление или создание записи времени для даты: {}, данные: {}", date, timeEntryDto);
         return ResponseEntity.ok(dayLogService.updateTimeEntry(date, timeEntryDto));
     }
+
+    @Override
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteTimeEntry(String date, int hour, int minute) {
+        log.info("Удаление записи времени для даты: {}, время: {}:{}", date, hour, minute);
+        dayLogService.deleteTimeEntry(date, hour, minute);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteTimeEntry(Long id) {
+        log.info("Удаление записи времени по идентификатору: {}", id);
+        dayLogService.deleteTimeEntry(id);
+        return ResponseEntity.noContent().build();
+    }
 }

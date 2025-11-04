@@ -31,6 +31,12 @@ public class TimeEntry {
     @Column(nullable = false)
     private int minute;
 
+    @Column(name = "end_hour", nullable = false)
+    private int endHour;
+
+    @Column(name = "end_minute", nullable = false)
+    private int endMinute;
+
     @Column(nullable = false)
     private boolean worked;
 

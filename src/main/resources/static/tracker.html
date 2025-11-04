@@ -40,7 +40,9 @@
 <body>
 <div id="loader" class="spinner-border text-primary"></div>
 <div class="container">
-    <div class="text-end mb-3">
+    <div class="text-end mb-3 d-flex justify-content-end gap-2 flex-wrap">
+        <button class="btn btn-outline-secondary" onclick="window.location.href='/new-tracker.html'">🆕 Новый трекер</button>
+        <button class="btn btn-outline-primary" onclick="window.location.href='/finance.html'">💳 Финансы</button>
         <button class="btn btn-danger" onclick="logout()">Выйти</button>
     </div>
     <h1>Трекер рабочего времени</h1>
@@ -49,8 +51,9 @@
     </div>
     <div class="message" id="message"></div>
 
-    <div class="text-center mb-3">
+    <div class="text-center mb-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
         <input type="date" id="datePicker" class="form-control d-inline-block w-auto" />
+        <button type="button" class="btn btn-primary" id="openClassicModal">➕ Новая запись</button>
     </div>
 
     <div class="text-center mb-3">
@@ -61,6 +64,8 @@
         <thead class="table-dark">
         <tr>
             <th>Час</th>
+            <th>Начало</th>
+            <th>Конец</th>
             <th>Работал?</th>
             <th>Комментарий</th>
             <th>Статус</th>
@@ -69,6 +74,9 @@
         </thead>
         <tbody id="timeEntriesTable"></tbody>
     </table>
+
+    <h2 class="mt-5">Карточки дня</h2>
+    <div id="timeEntriesList" class="row row-cols-1 row-cols-md-2 g-3"></div>
 
     <h2>Управление статусами</h2>
     <div class="text-center mb-3">
@@ -88,6 +96,52 @@
         <tbody id="statusTableBody"></tbody>
     </table>
 </div>
+
+<div class="modal fade" id="classicEntryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="classicEntryForm" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="classicModalTitle">Новая запись</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label for="classicStartTime" class="form-label">Начало</label>
+                            <input type="time" class="form-control" id="classicStartTime" required>
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="classicEndTime" class="form-label">Конец</label>
+                            <input type="time" class="form-control" id="classicEndTime" required>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="classicWorked">
+                                <label class="form-check-label" for="classicWorked">Отработано</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label for="classicStatus" class="form-label">Статус</label>
+                            <select id="classicStatus" class="form-select">
+                                <option value="">—</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="classicComment" class="form-label">Комментарий</label>
+                            <input type="text" class="form-control" id="classicComment" placeholder="Введите комментарий">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="scripts.js"></script>
 </body>
 </html>

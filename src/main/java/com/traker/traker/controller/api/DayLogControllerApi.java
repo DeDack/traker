@@ -25,4 +25,16 @@ public interface DayLogControllerApi {
     @ApiResponse(responseCode = "400", description = "Некорректный запрос")
     @ApiResponse(responseCode = "500", description = "Внутренняя ошибка сервера")
     ResponseEntity<TimeEntryDto> updateTimeEntry(@PathVariable String date, @RequestBody TimeEntryDto timeEntryDto);
+
+    @DeleteMapping("/{date}/{hour}/{minute}")
+    @Operation(summary = "Удаление записи времени по дате и времени")
+    @ApiResponse(responseCode = "204", description = "Запись удалена")
+    @ApiResponse(responseCode = "400", description = "Некорректный запрос")
+    ResponseEntity<Void> deleteTimeEntry(@PathVariable String date, @PathVariable int hour, @PathVariable int minute);
+
+    @DeleteMapping("/entries/{id}")
+    @Operation(summary = "Удаление записи времени по идентификатору")
+    @ApiResponse(responseCode = "204", description = "Запись удалена")
+    @ApiResponse(responseCode = "400", description = "Некорректный запрос")
+    ResponseEntity<Void> deleteTimeEntry(@PathVariable Long id);
 }

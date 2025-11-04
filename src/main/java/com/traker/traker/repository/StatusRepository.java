@@ -13,5 +13,7 @@ public interface StatusRepository extends DefaultRepository<Status, Long> {
     Optional<Status> findByName(String name);
     Optional<Status> findByNameAndUser(String name, User user);
     Optional<Status> findByIdAndUser(Long id, User user);
-    List<Status> findByUser(User user);
+    List<Status> findByUserOrderByOrderIndexAscNameAsc(User user);
+
+    Optional<Status> findTopByUserOrderByOrderIndexDesc(User user);
 }
