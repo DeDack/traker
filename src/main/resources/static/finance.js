@@ -93,11 +93,18 @@
         }
     };
 
+    function initFinanceCollapses() {
+        setupCollapseToggle('analyticsSectionToggle', 'analyticsSectionCollapse', { storageKey: 'finance.analytics', defaultExpanded: true });
+        setupCollapseToggle('budgetSectionToggle', 'budgetSectionCollapse', { storageKey: 'finance.budget', defaultExpanded: true });
+        setupCollapseToggle('categorySectionToggle', 'categorySectionCollapse', { storageKey: 'finance.categories', defaultExpanded: true });
+    }
+
     window.initFinancePage = async function () {
         if (!(await isAuthenticated()) && !(await refreshAccessToken())) {
             return showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
         }
 
+        initFinanceCollapses();
         setupEventHandlers();
         initManagementComponents();
         await Promise.all([loadExpenseCategories(), loadIncomeCategories()]);

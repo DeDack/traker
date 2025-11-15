@@ -13,16 +13,40 @@ function enhanceTimeInput(input) {
     if (!input || input.dataset.enhancedTime === 'true') return;
     input.dataset.enhancedTime = 'true';
     input.setAttribute('step', '60');
-    input.setAttribute('inputmode', 'none');
+    input.setAttribute('inputmode', 'numeric');
+    input.setAttribute('autocomplete', 'off');
     const supportsPicker = typeof input.showPicker === 'function';
     if (supportsPicker) {
-        input.readOnly = true;
-        input.addEventListener('keydown', event => event.preventDefault());
-        const openPicker = () => input.showPicker();
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-outline-secondary time-picker-button';
+        button.setAttribute('aria-label', 'Выбрать время');
+        button.innerHTML = '&#128339;';
+
+        const parent = input.parentElement;
+        if (parent) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'input-group time-picker-group w-100';
+            if (input.classList.contains('form-control-sm')) {
+                wrapper.classList.add('input-group-sm');
+                button.classList.add('btn-sm');
+            }
+            parent.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
+            wrapper.appendChild(button);
+        }
+
+        const openPicker = () => {
+            try {
+                input.showPicker();
+            } catch (e) {
+                input.focus();
+            }
+        };
         input.addEventListener('focus', openPicker);
-        input.addEventListener('click', openPicker);
+        button.addEventListener('click', openPicker);
     } else {
-        input.removeAttribute('inputmode');
+        input.removeAttribute('autocomplete');
     }
 }
 
@@ -820,17 +844,46 @@ function buildStatusAggregations(entries, filterSet) {
     return { total, rows: Array.from(map.values()) };
 }
 
-function setupCollapseToggle(buttonId, collapseId) {
+function setupCollapseToggle(buttonId, collapseId, options = {}) {
     const toggle = document.getElementById(buttonId);
     const collapse = document.getElementById(collapseId);
     if (!toggle || !collapse) return;
 
-    const expandedLabel = toggle.dataset.expandedLabel || 'Свернуть';
-    const collapsedLabel = toggle.dataset.collapsedLabel || 'Развернуть';
+    const expandedLabel = toggle.dataset.expandedLabel || options.expandedLabel || 'Свернуть';
+    const collapsedLabel = toggle.dataset.collapsedLabel || options.collapsedLabel || 'Развернуть';
+    const storageKey = toggle.dataset.storageKey || collapse.dataset.storageKey || options.storageKey || null;
+    const defaultExpanded = options.defaultExpanded ?? collapse.classList.contains('show');
+    let savedState = null;
+    if (storageKey) {
+        try {
+            savedState = localStorage.getItem(storageKey);
+        } catch (e) {
+            savedState = null;
+        }
+    }
+    const shouldExpand = savedState == null ? defaultExpanded : savedState === 'expanded';
+
+    const ensureState = () => {
+        const instance = window.bootstrap ? window.bootstrap.Collapse.getOrCreateInstance(collapse, { toggle: false }) : null;
+        const currentlyExpanded = collapse.classList.contains('show');
+        if (shouldExpand && !currentlyExpanded) {
+            instance ? instance.show() : collapse.classList.add('show');
+        } else if (!shouldExpand && currentlyExpanded) {
+            instance ? instance.hide() : collapse.classList.remove('show');
+        }
+    };
+    ensureState();
 
     const updateLabel = () => {
         const expanded = collapse.classList.contains('show');
         toggle.textContent = expanded ? expandedLabel : collapsedLabel;
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (!storageKey) return;
+        try {
+            localStorage.setItem(storageKey, expanded ? 'expanded' : 'collapsed');
+        } catch (e) {
+            // ignore quota errors
+        }
     };
 
     collapse.addEventListener('shown.bs.collapse', updateLabel);
@@ -839,9 +892,9 @@ function setupCollapseToggle(buttonId, collapseId) {
 }
 
 function setupTrackerCollapses() {
-    setupCollapseToggle('analyticsToggle', 'analyticsCollapse');
-    setupCollapseToggle('quickSlotsToggle', 'quickSlotsCollapse');
-    setupCollapseToggle('statusToggle', 'statusCollapse');
+    setupCollapseToggle('analyticsToggle', 'analyticsCollapse', { storageKey: 'newTracker.analytics', defaultExpanded: true });
+    setupCollapseToggle('quickSlotsToggle', 'quickSlotsCollapse', { storageKey: 'newTracker.quickSlots', defaultExpanded: true });
+    setupCollapseToggle('statusToggle', 'statusCollapse', { storageKey: 'newTracker.statuses', defaultExpanded: true });
 }
 
 function updateCharts() {

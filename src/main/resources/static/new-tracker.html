@@ -52,6 +52,12 @@
       justify-content: space-between;
       align-items: center;
     }
+    .time-picker-group.input-group {
+      width: 100%;
+    }
+    .time-picker-button {
+      min-width: 3rem;
+    }
   </style>
 </head>
 <body class="bg-light">
@@ -129,7 +135,8 @@
               aria-expanded="true"
               aria-controls="analyticsCollapse"
               data-expanded-label="Свернуть аналитику"
-              data-collapsed-label="Развернуть аналитику">
+              data-collapsed-label="Развернуть аналитику"
+              data-storage-key="newTracker.analytics">
         Свернуть аналитику
       </button>
     </div>
@@ -165,7 +172,8 @@
               aria-expanded="true"
               aria-controls="quickSlotsCollapse"
               data-expanded-label="Свернуть слоты"
-              data-collapsed-label="Развернуть слоты">
+              data-collapsed-label="Развернуть слоты"
+              data-storage-key="newTracker.quickSlots">
         Свернуть слоты
       </button>
     </div>
@@ -200,7 +208,8 @@
               aria-expanded="true"
               aria-controls="statusCollapse"
               data-expanded-label="Свернуть статусы"
-              data-collapsed-label="Развернуть статусы">
+              data-collapsed-label="Развернуть статусы"
+              data-storage-key="newTracker.statuses">
         Свернуть статусы
       </button>
     </div>
