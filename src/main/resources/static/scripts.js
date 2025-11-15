@@ -259,26 +259,36 @@ function populateStatusSelect() {
 }
 
 function populateStatusFilter() {
-    const filter = document.getElementById('statusFilter');
-    if (!filter) return;
-    const previouslySelected = new Set(Array.from(filter.selectedOptions).map(o => Number(o.value)));
-    filter.innerHTML = '';
-    statusOptions.forEach(status => {
-        const option = document.createElement('option');
-        option.value = status.id;
-        option.textContent = status.name;
-        if (previouslySelected.size === 0 || previouslySelected.has(status.id)) {
-            option.selected = true;
-        }
-        filter.appendChild(option);
-    });
-    const noneOption = document.createElement('option');
-    noneOption.value = '-1';
-    noneOption.textContent = 'Без статуса';
-    if (previouslySelected.size === 0 || previouslySelected.has(-1)) {
-        noneOption.selected = true;
-    }
-    filter.appendChild(noneOption);
+    const container = document.getElementById('statusFilter');
+    if (!container) return;
+    const previousCheckboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+    const checkedValues = new Set(previousCheckboxes.filter(input => input.checked).map(input => input.value));
+    const previousValues = new Set(previousCheckboxes.map(input => input.value));
+    const selectNewByDefault = previousCheckboxes.length === 0 || previousCheckboxes.every(input => input.checked);
+    container.innerHTML = '';
+
+    const appendCheckbox = (value, label) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'form-check-input';
+        input.id = `status-filter-${value}`;
+        input.value = value;
+        const wasExisting = previousValues.has(value);
+        input.checked = checkedValues.has(value) || (!wasExisting && selectNewByDefault);
+        input.addEventListener('change', updateCharts);
+        const labelEl = document.createElement('label');
+        labelEl.className = 'form-check-label';
+        labelEl.setAttribute('for', input.id);
+        labelEl.textContent = label;
+        wrapper.appendChild(input);
+        wrapper.appendChild(labelEl);
+        container.appendChild(wrapper);
+    };
+
+    statusOptions.forEach(status => appendCheckbox(String(status.id), status.name));
+    appendCheckbox('-1', 'Без статуса');
     updateCharts();
 }
 
@@ -816,6 +826,14 @@ function formatDuration(minutes) {
     return `${mins} мин`;
 }
 
+function readCheckedValues(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('input[type="checkbox"]'))
+        .filter(input => input.checked)
+        .map(input => input.value);
+}
+
 function updateWorkedHours() {
     const label = document.getElementById('workedHours');
     if (!label) return;
@@ -901,13 +919,10 @@ function updateCharts() {
     const donutCanvas = document.getElementById('timeByStatusChart');
     const barCanvas = document.getElementById('timeByStatusBar');
     const legend = document.getElementById('statusLegend');
-    const filter = document.getElementById('statusFilter');
     if (!donutCanvas || !barCanvas || !legend || typeof Chart === 'undefined') return;
 
-    const filterSet = new Set();
-    if (filter) {
-        Array.from(filter.selectedOptions).forEach(opt => filterSet.add(Number(opt.value)));
-    }
+    const filterValues = readCheckedValues('statusFilter');
+    const filterSet = new Set(filterValues.map(value => Number(value)));
 
     const aggregated = buildStatusAggregations(currentEntries, filterSet);
     const chartPalette = ['#4c6ef5', '#15aabf', '#fab005', '#fa5252', '#5f3dc4', '#40c057', '#fd7e14', '#6f42c1', '#099268'];
@@ -976,7 +991,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const statusFilter = document.getElementById('statusFilter');
     if (statusFilter) {
-        statusFilter.addEventListener('change', updateCharts);
+        statusFilter.addEventListener('change', event => {
+            if (event.target && event.target.matches('input[type="checkbox"]')) {
+                updateCharts();
+            }
+        });
     }
 
     if (path.endsWith('tracker.html')) {

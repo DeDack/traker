@@ -58,6 +58,16 @@
     .time-picker-button {
       min-width: 3rem;
     }
+    .status-checkbox-list {
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .status-checkbox-list .form-check {
+      margin-bottom: 0.25rem;
+    }
+    .status-checkbox-list .form-check:last-child {
+      margin-bottom: 0;
+    }
   </style>
 </head>
 <body class="bg-light">
@@ -142,8 +152,8 @@
     </div>
     <div id="analyticsCollapse" class="collapse show mt-3">
       <div class="mb-3" style="max-width:360px;">
-        <label for="statusFilter" class="form-label mb-1">Фильтр по статусам</label>
-        <select id="statusFilter" class="form-select" multiple></select>
+        <label class="form-label mb-1">Фильтр по статусам</label>
+        <div id="statusFilter" class="status-checkbox-list border rounded p-2"></div>
         <small class="text-muted">Выберите статусы для отображения на диаграммах</small>
       </div>
       <div class="row g-4">

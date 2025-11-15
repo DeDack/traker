@@ -53,6 +53,16 @@
         .multi-select {
             min-width: 220px;
         }
+        .category-checkbox-list {
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .category-checkbox-list .form-check {
+            margin-bottom: 4px;
+        }
+        .category-checkbox-list .form-check:last-child {
+            margin-bottom: 0;
+        }
         .detail-expense-list .list-group-item {
             display: flex;
             justify-content: space-between;
@@ -201,12 +211,12 @@
                     <input type="month" class="form-control" id="filterMonth">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small text-muted mb-1" for="expenseFilterCategories">Категории расходов</label>
-                    <select id="expenseFilterCategories" class="form-select multi-select" multiple size="4"></select>
+                    <label class="form-label small text-muted mb-1">Категории расходов</label>
+                    <div id="expenseFilterCategories" class="category-checkbox-list border rounded p-2"></div>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small text-muted mb-1" for="incomeFilterCategories">Категории доходов</label>
-                    <select id="incomeFilterCategories" class="form-select multi-select" multiple size="4"></select>
+                    <label class="form-label small text-muted mb-1">Категории доходов</label>
+                    <div id="incomeFilterCategories" class="category-checkbox-list border rounded p-2"></div>
                 </div>
                 <div class="col-auto align-self-end">
                     <button type="submit" class="btn btn-outline-primary pill-button">Обновить</button>
