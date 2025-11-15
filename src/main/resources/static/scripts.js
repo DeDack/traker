@@ -7,6 +7,29 @@ const classicModalState = {
     elements: null
 };
 
+const TIME_INPUT_SELECTOR = 'input.time-input';
+
+function enhanceTimeInput(input) {
+    if (!input || input.dataset.enhancedTime === 'true') return;
+    input.dataset.enhancedTime = 'true';
+    input.setAttribute('step', '60');
+    input.setAttribute('inputmode', 'none');
+    const supportsPicker = typeof input.showPicker === 'function';
+    if (supportsPicker) {
+        input.readOnly = true;
+        input.addEventListener('keydown', event => event.preventDefault());
+        const openPicker = () => input.showPicker();
+        input.addEventListener('focus', openPicker);
+        input.addEventListener('click', openPicker);
+    } else {
+        input.removeAttribute('inputmode');
+    }
+}
+
+function enhanceTimePickers(root = document) {
+    root.querySelectorAll(TIME_INPUT_SELECTOR).forEach(enhanceTimeInput);
+}
+
 function pad(num) {
     return String(num).padStart(2, '0');
 }
@@ -354,7 +377,12 @@ async function loadDayData() {
 
 
 function formatTimeValue(hour, minute) {
-    return `${pad(hour)}:${pad(minute)}`;
+    const h = Number(hour);
+    const m = Number(minute);
+    if (Number.isNaN(h) || Number.isNaN(m)) {
+        return '--:--';
+    }
+    return `${pad(h)}:${pad(m)}`;
 }
 
 function defaultStartForHour(hour) {
@@ -432,8 +460,8 @@ function renderHourlyEntries(entries) {
         row.dataset.entryId = entry && entry.id != null ? entry.id : '';
         row.innerHTML = `
             <td>${pad(hour)}:00</td>
-            <td><input type="time" class="form-control form-control-sm" data-field="start" value="${startValue}"></td>
-            <td><input type="time" class="form-control form-control-sm" data-field="end" value="${endValue}"></td>
+            <td><input type="time" class="form-control form-control-sm time-input" data-field="start" value="${startValue}" step="60"></td>
+            <td><input type="time" class="form-control form-control-sm time-input" data-field="end" value="${endValue}" step="60"></td>
             <td class="text-center"><input type="checkbox" data-field="worked" ${entry && entry.worked ? 'checked' : ''}></td>
             <td><input type="text" class="form-control form-control-sm" data-field="comment" value="${escapeHtml(entry?.comment || '')}"></td>
             <td>
@@ -450,6 +478,7 @@ function renderHourlyEntries(entries) {
             </td>
         `;
         table.appendChild(row);
+        enhanceTimePickers(row);
     }
 }
 
@@ -519,7 +548,13 @@ function renderTimeEntryCards(entries) {
     list.innerHTML = '';
     entries
         .slice()
-        .sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute))
+        .sort((a, b) => {
+            const aMinutes = Number(a.hour) * 60 + Number(a.minute);
+            const bMinutes = Number(b.hour) * 60 + Number(b.minute);
+            const safeA = Number.isNaN(aMinutes) ? 0 : aMinutes;
+            const safeB = Number.isNaN(bMinutes) ? 0 : bMinutes;
+            return safeA - safeB;
+        })
         .forEach(entry => {
             const start = formatTimeValue(entry.hour, entry.minute);
             const end = formatTimeValue(entry.endHour, entry.endMinute);
@@ -737,8 +772,15 @@ function editTimeEntry(btn) {
 }
 
 function computeEntryMinutes(entry) {
-    const start = entry.hour * 60 + entry.minute;
-    const end = entry.endHour * 60 + entry.endMinute;
+    const startHour = Number(entry.hour);
+    const startMinute = Number(entry.minute);
+    const endHour = Number(entry.endHour);
+    const endMinute = Number(entry.endMinute);
+    if ([startHour, startMinute, endHour, endMinute].some(value => Number.isNaN(value))) {
+        return 0;
+    }
+    const start = startHour * 60 + startMinute;
+    const end = endHour * 60 + endMinute;
     return Math.max(end - start, 0);
 }
 
@@ -762,7 +804,6 @@ function buildStatusAggregations(entries, filterSet) {
     const map = new Map();
     let total = 0;
     entries.forEach(entry => {
-        if (!entry.worked) return;
         const minutes = computeEntryMinutes(entry);
         if (minutes <= 0) return;
         const statusId = entry.status && entry.status.id != null ? Number(entry.status.id) : -1;
@@ -777,6 +818,21 @@ function buildStatusAggregations(entries, filterSet) {
         total += minutes;
     });
     return { total, rows: Array.from(map.values()) };
+}
+
+function setupQuickSlotsToggle() {
+    const toggle = document.getElementById('quickSlotsToggle');
+    const collapse = document.getElementById('quickSlotsCollapse');
+    if (!toggle || !collapse) return;
+
+    const updateLabel = () => {
+        const expanded = collapse.classList.contains('show');
+        toggle.textContent = expanded ? 'Свернуть' : 'Развернуть';
+    };
+
+    collapse.addEventListener('shown.bs.collapse', updateLabel);
+    collapse.addEventListener('hidden.bs.collapse', updateLabel);
+    updateLabel();
 }
 
 function updateCharts() {
@@ -854,6 +910,7 @@ function startTokenRefreshTimer() {
 document.addEventListener('DOMContentLoaded', async () => {
     const path = window.location.pathname;
     startTokenRefreshTimer();
+    enhanceTimePickers();
 
     const statusFilter = document.getElementById('statusFilter');
     if (statusFilter) {
@@ -881,6 +938,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         await fetchStatuses();
         await displayUsername();
+        setupQuickSlotsToggle();
         const datePicker = document.getElementById('datePicker');
         if (datePicker) {
             const today = new Date().toISOString().split('T')[0];
