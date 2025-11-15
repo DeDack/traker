@@ -14,14 +14,16 @@ public class EncryptedBigDecimalConverter implements AttributeConverter<BigDecim
 
     private static volatile DataEncryptionService encryptionService;
 
-    public EncryptedBigDecimalConverter() {
-        if (encryptionService == null) {
-            throw new IllegalStateException("DataEncryptionService is not initialized for EncryptedBigDecimalConverter");
-        }
-    }
-
     public static void registerEncryptionService(DataEncryptionService service) {
         encryptionService = service;
+    }
+
+    private static DataEncryptionService requireService() {
+        DataEncryptionService service = encryptionService;
+        if (service == null) {
+            throw new IllegalStateException("DataEncryptionService is not initialized for EncryptedBigDecimalConverter");
+        }
+        return service;
     }
 
     @Override
@@ -29,7 +31,7 @@ public class EncryptedBigDecimalConverter implements AttributeConverter<BigDecim
         if (attribute == null) {
             return null;
         }
-        return encryptionService.encrypt(EncryptionContextHolder.requireKey(), attribute.toPlainString());
+        return requireService().encrypt(EncryptionContextHolder.requireKey(), attribute.toPlainString());
     }
 
     @Override
@@ -37,7 +39,7 @@ public class EncryptedBigDecimalConverter implements AttributeConverter<BigDecim
         if (dbData == null) {
             return null;
         }
-        String plain = encryptionService.decrypt(EncryptionContextHolder.requireKey(), dbData);
+        String plain = requireService().decrypt(EncryptionContextHolder.requireKey(), dbData);
         return new BigDecimal(plain);
     }
 }

@@ -12,14 +12,16 @@ public class EncryptedStringConverter implements AttributeConverter<String, Stri
 
     private static volatile DataEncryptionService encryptionService;
 
-    public EncryptedStringConverter() {
-        if (encryptionService == null) {
-            throw new IllegalStateException("DataEncryptionService is not initialized for EncryptedStringConverter");
-        }
-    }
-
     public static void registerEncryptionService(DataEncryptionService service) {
         encryptionService = service;
+    }
+
+    private static DataEncryptionService requireService() {
+        DataEncryptionService service = encryptionService;
+        if (service == null) {
+            throw new IllegalStateException("DataEncryptionService is not initialized for EncryptedStringConverter");
+        }
+        return service;
     }
 
     @Override
@@ -27,7 +29,7 @@ public class EncryptedStringConverter implements AttributeConverter<String, Stri
         if (attribute == null) {
             return null;
         }
-        return encryptionService.encrypt(EncryptionContextHolder.requireKey(), attribute);
+        return requireService().encrypt(EncryptionContextHolder.requireKey(), attribute);
     }
 
     @Override
@@ -35,6 +37,6 @@ public class EncryptedStringConverter implements AttributeConverter<String, Stri
         if (dbData == null) {
             return null;
         }
-        return encryptionService.decrypt(EncryptionContextHolder.requireKey(), dbData);
+        return requireService().decrypt(EncryptionContextHolder.requireKey(), dbData);
     }
 }
