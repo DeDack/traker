@@ -159,7 +159,7 @@ async function login() {
             credentials: 'include'
         });
         if (resp.ok) {
-            window.location.href = '/tracker.html';
+            window.location.href = '/new-tracker.html';
         } else {
             showMessage(await resp.text() || 'Ошибка входа', 'danger');
         }
@@ -820,19 +820,28 @@ function buildStatusAggregations(entries, filterSet) {
     return { total, rows: Array.from(map.values()) };
 }
 
-function setupQuickSlotsToggle() {
-    const toggle = document.getElementById('quickSlotsToggle');
-    const collapse = document.getElementById('quickSlotsCollapse');
+function setupCollapseToggle(buttonId, collapseId) {
+    const toggle = document.getElementById(buttonId);
+    const collapse = document.getElementById(collapseId);
     if (!toggle || !collapse) return;
+
+    const expandedLabel = toggle.dataset.expandedLabel || 'Свернуть';
+    const collapsedLabel = toggle.dataset.collapsedLabel || 'Развернуть';
 
     const updateLabel = () => {
         const expanded = collapse.classList.contains('show');
-        toggle.textContent = expanded ? 'Свернуть' : 'Развернуть';
+        toggle.textContent = expanded ? expandedLabel : collapsedLabel;
     };
 
     collapse.addEventListener('shown.bs.collapse', updateLabel);
     collapse.addEventListener('hidden.bs.collapse', updateLabel);
     updateLabel();
+}
+
+function setupTrackerCollapses() {
+    setupCollapseToggle('analyticsToggle', 'analyticsCollapse');
+    setupCollapseToggle('quickSlotsToggle', 'quickSlotsCollapse');
+    setupCollapseToggle('statusToggle', 'statusCollapse');
 }
 
 function updateCharts() {
@@ -938,7 +947,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         await fetchStatuses();
         await displayUsername();
-        setupQuickSlotsToggle();
+        setupTrackerCollapses();
         const datePicker = document.getElementById('datePicker');
         if (datePicker) {
             const today = new Date().toISOString().split('T')[0];
@@ -948,9 +957,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         displayStatuses();
     } else if (path.endsWith('index.html') || path === '/') {
-        if (await isAuthenticated()) window.location.href = '/tracker.html';
+        if (await isAuthenticated()) window.location.href = '/new-tracker.html';
     } else if (path.endsWith('login.html') || path.endsWith('register.html')) {
-        if (await isAuthenticated()) window.location.href = '/tracker.html';
+        if (await isAuthenticated()) window.location.href = '/new-tracker.html';
     } else if (path.endsWith('finance.html')) {
         if (typeof initFinancePage === 'function') {
             await initFinancePage();
