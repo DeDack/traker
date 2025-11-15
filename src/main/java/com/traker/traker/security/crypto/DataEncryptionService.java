@@ -9,6 +9,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -46,7 +48,36 @@ public class DataEncryptionService {
         if (encoded == null || encoded.isBlank()) {
             throw new IllegalArgumentException("Master key value must be provided");
         }
-        return Base64.getDecoder().decode(encoded.trim());
+
+        byte[] decoded = tryBase64Decode(encoded.trim());
+        if (isValidKeyLength(decoded.length)) {
+            return decoded;
+        }
+
+        // Normalize any arbitrary secret (plain text or invalid Base64 length)
+        // to a 256-bit value so AES accepts it.
+        return sha256(decoded);
+    }
+
+    private static byte[] tryBase64Decode(String value) {
+        try {
+            return Base64.getDecoder().decode(value);
+        } catch (IllegalArgumentException ex) {
+            return value.getBytes(StandardCharsets.UTF_8);
+        }
+    }
+
+    private static boolean isValidKeyLength(int length) {
+        return length == 16 || length == 24 || length == 32;
+    }
+
+    private static byte[] sha256(byte[] input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(input);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 digest is not available", e);
+        }
     }
 
     public String encrypt(byte[] key, String plainText) {
