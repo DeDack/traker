@@ -12,6 +12,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 
 /**
@@ -27,19 +28,22 @@ public class DataEncryptionService {
     private static final int IV_LENGTH = 12;
 
     private final SecureRandom secureRandom = new SecureRandom();
+    private int keySizeBytes = 32;
 
     @PostConstruct
     void validateSecurityProvider() {
         // Trigger early failure if the runtime does not support the required cipher.
         try {
             Cipher.getInstance(TRANSFORMATION);
+            int maxKeyLength = Cipher.getMaxAllowedKeyLength(AES);
+            this.keySizeBytes = selectKeySize(maxKeyLength);
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("AES/GCM is not available in the current JVM", e);
         }
     }
 
     public byte[] generateKey() {
-        byte[] key = new byte[32];
+        byte[] key = new byte[keySizeBytes];
         secureRandom.nextBytes(key);
         return key;
     }
@@ -50,13 +54,20 @@ public class DataEncryptionService {
         }
 
         byte[] decoded = tryBase64Decode(encoded.trim());
-        if (isValidKeyLength(decoded.length)) {
-            return decoded;
-        }
+        return normalizeKeyLength(decoded);
+    }
 
-        // Normalize any arbitrary secret (plain text or invalid Base64 length)
-        // to a 256-bit value so AES accepts it.
-        return sha256(decoded);
+    private static int selectKeySize(int maxKeyLength) {
+        if (maxKeyLength >= 256) {
+            return 32;
+        }
+        if (maxKeyLength >= 192) {
+            return 24;
+        }
+        if (maxKeyLength >= 128) {
+            return 16;
+        }
+        throw new IllegalStateException("AES key sizes below 128 bits are not supported");
     }
 
     private static byte[] tryBase64Decode(String value) {
@@ -78,6 +89,19 @@ public class DataEncryptionService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 digest is not available", e);
         }
+    }
+
+    private byte[] normalizeKeyLength(byte[] candidate) {
+        byte[] normalized = candidate;
+        if (!isValidKeyLength(normalized.length)) {
+            normalized = sha256(normalized);
+        }
+
+        if (normalized.length > keySizeBytes) {
+            return Arrays.copyOf(normalized, keySizeBytes);
+        }
+
+        return normalized;
     }
 
     public String encrypt(byte[] key, String plainText) {
