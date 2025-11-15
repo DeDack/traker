@@ -1,6 +1,5 @@
 package com.traker.traker.security.crypto;
 
-import com.traker.traker.config.ApplicationContextProvider;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
@@ -13,10 +12,16 @@ import java.math.BigDecimal;
 @Converter(autoApply = false)
 public class EncryptedBigDecimalConverter implements AttributeConverter<BigDecimal, String> {
 
-    private final DataEncryptionService encryptionService;
+    private static volatile DataEncryptionService encryptionService;
 
     public EncryptedBigDecimalConverter() {
-        this.encryptionService = ApplicationContextProvider.getBean(DataEncryptionService.class);
+        if (encryptionService == null) {
+            throw new IllegalStateException("DataEncryptionService is not initialized for EncryptedBigDecimalConverter");
+        }
+    }
+
+    static void registerEncryptionService(DataEncryptionService service) {
+        encryptionService = service;
     }
 
     @Override

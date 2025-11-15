@@ -1,6 +1,5 @@
 package com.traker.traker.security.crypto;
 
-import com.traker.traker.config.ApplicationContextProvider;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
@@ -11,10 +10,16 @@ import jakarta.persistence.Converter;
 @Converter(autoApply = false)
 public class EncryptedStringConverter implements AttributeConverter<String, String> {
 
-    private final DataEncryptionService encryptionService;
+    private static volatile DataEncryptionService encryptionService;
 
     public EncryptedStringConverter() {
-        this.encryptionService = ApplicationContextProvider.getBean(DataEncryptionService.class);
+        if (encryptionService == null) {
+            throw new IllegalStateException("DataEncryptionService is not initialized for EncryptedStringConverter");
+        }
+    }
+
+    static void registerEncryptionService(DataEncryptionService service) {
+        encryptionService = service;
     }
 
     @Override
