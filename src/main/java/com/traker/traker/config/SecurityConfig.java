@@ -1,5 +1,6 @@
 package com.traker.traker.config;
 
+import com.traker.traker.security.EncryptionContextFilter;
 import com.traker.traker.service.UserDetailsServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtRequestFilter jwtRequestFilter;
+    private final EncryptionContextFilter encryptionContextFilter;
     private final RoleConfiguration roleConfiguration;
 
     @Bean
@@ -45,7 +47,8 @@ public class SecurityConfig {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
                         }))
                 // Добавляем JWT-фильтр перед UsernamePasswordAuthenticationFilter
-                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(encryptionContextFilter, UsernamePasswordAuthenticationFilter.class);
 
         // Применяем конфигурацию ролей из RoleConfiguration
         roleConfiguration.configureAuthorization(http);

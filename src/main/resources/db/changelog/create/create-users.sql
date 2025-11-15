@@ -4,5 +4,6 @@ CREATE TABLE users (
                        name VARCHAR(255),
                        created_at TIMESTAMP,
                        updated_at TIMESTAMP,
-                       password VARCHAR(255) NOT NULL DEFAULT ''
+                       password VARCHAR(255) NOT NULL DEFAULT '',
+                       encrypted_data_key TEXT
 );

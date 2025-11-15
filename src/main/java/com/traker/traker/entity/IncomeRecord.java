@@ -1,6 +1,8 @@
 package com.traker.traker.entity;
 
 import com.traker.traker.api.DefaultEntity;
+import com.traker.traker.security.crypto.EncryptedBigDecimalConverter;
+import com.traker.traker.security.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -31,13 +33,16 @@ public class IncomeRecord extends DefaultEntity {
     @ToString.Exclude
     private IncomeCategory category;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String title;
 
-    @Column
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(name = "amount", nullable = false, columnDefinition = "TEXT")
     private BigDecimal amount;
 
     @Column(name = "period_start", nullable = false)

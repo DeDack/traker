@@ -1,6 +1,8 @@
 package com.traker.traker.entity;
 
 import com.traker.traker.api.DefaultEntity;
+import com.traker.traker.security.crypto.EncryptedBigDecimalConverter;
+import com.traker.traker.security.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,15 +31,19 @@ public class Budget extends DefaultEntity {
     @Column(name = "period_start", nullable = false)
     private LocalDate period;
 
-    @Column(name = "planned_income", precision = 19, scale = 2)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(name = "planned_income", columnDefinition = "TEXT")
     private BigDecimal plannedIncome;
 
-    @Column(name = "planned_expense", precision = 19, scale = 2)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(name = "planned_expense", columnDefinition = "TEXT")
     private BigDecimal plannedExpense;
 
-    @Column(name = "savings_goal", precision = 19, scale = 2)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(name = "savings_goal", columnDefinition = "TEXT")
     private BigDecimal savingsGoal;
 
-    @Column(length = 1000)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String notes;
 }

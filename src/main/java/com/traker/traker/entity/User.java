@@ -35,6 +35,14 @@ public class User extends DefaultEntity implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "encrypted_data_key")
+    @ToString.Exclude
+    private String encryptedDataKey;
+
+    @Transient
+    @ToString.Exclude
+    private byte[] decryptedDataKey;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

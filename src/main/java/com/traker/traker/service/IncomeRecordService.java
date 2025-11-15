@@ -15,9 +15,6 @@ import com.traker.traker.mapper.IncomeRecordMapper;
 import com.traker.traker.repository.IncomeCategoryRepository;
 import com.traker.traker.repository.IncomeRecordRepository;
 import com.traker.traker.repository.UserRepository;
-import com.traker.traker.repository.projection.CategoryAmountView;
-import com.traker.traker.repository.projection.CategoryPeriodAmountView;
-import com.traker.traker.repository.projection.PeriodAmountView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -149,59 +146,54 @@ public class IncomeRecordService {
         FinanceFilter filter = buildFilter(fromDate, toDate, month);
         User currentUser = getCurrentUser();
 
-        List<Long> normalizedCategories = normalizeCategoryFilter(categoryIds);
-
-        List<CategoryAmountView> totalsByCategory = incomeRecordRepository.sumByCategory(
+        List<IncomeRecord> records = incomeRecordRepository.findByUserAndFilter(
                 currentUser,
                 filter.fromDate(),
                 filter.toDate(),
                 filter.fromPeriod(),
                 filter.toPeriod(),
-                normalizedCategories);
+                normalizeCategoryFilter(categoryIds));
 
-        BigDecimal totalAmount = totalsByCategory.stream()
-                .map(CategoryAmountView::getTotalAmount)
+        Map<LocalDate, BigDecimal> totalsByPeriod = new LinkedHashMap<>();
+        Map<Long, CategoryAggregation> categoryAggregations = new LinkedHashMap<>();
+
+        for (IncomeRecord record : records) {
+            BigDecimal amount = normalizeAmount(record.getAmount());
+            totalsByPeriod.merge(record.getPeriod(), amount, BigDecimal::add);
+
+            Long categoryId = record.getCategory().getId();
+            CategoryAggregation aggregation = categoryAggregations.computeIfAbsent(
+                    categoryId,
+                    id -> new CategoryAggregation(categoryId, record.getCategory().getName()));
+            aggregation.addAmount(record.getPeriod(), amount);
+        }
+
+        BigDecimal totalAmount = records.stream()
+                .map(IncomeRecord::getAmount)
                 .map(amount -> normalizeAmount(amount))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<PeriodAmountView> totalsByPeriod = incomeRecordRepository.sumByPeriod(
-                currentUser,
-                filter.fromDate(),
-                filter.toDate(),
-                filter.fromPeriod(),
-                filter.toPeriod(),
-                normalizedCategories);
-
-        List<CategoryPeriodAmountView> categoryPeriodTotals = incomeRecordRepository.sumByCategoryAndPeriod(
-                currentUser,
-                filter.fromDate(),
-                filter.toDate(),
-                filter.fromPeriod(),
-                filter.toPeriod(),
-                normalizedCategories);
-
         IncomeSummaryDto summaryDto = new IncomeSummaryDto();
-        summaryDto.setTotalsByCategory(totalsByCategory.stream()
-                .map(view -> {
-                    BigDecimal amount = normalizeAmount(view.getTotalAmount());
-                    return new IncomeSummaryDto.CategoryTotalDto(
-                            view.getCategoryId(),
-                            view.getCategoryName(),
-                            amount,
-                            calculatePercentage(amount, totalAmount));
-                })
+        BigDecimal normalizedTotal = normalizeAmount(totalAmount);
+        summaryDto.setTotalAmount(normalizedTotal);
+
+        summaryDto.setTotalsByCategory(categoryAggregations.values().stream()
+                .sorted(Comparator.comparing(CategoryAggregation::getCategoryName, String.CASE_INSENSITIVE_ORDER))
+                .map(aggregation -> new IncomeSummaryDto.CategoryTotalDto(
+                        aggregation.getCategoryId(),
+                        aggregation.getCategoryName(),
+                        normalizeAmount(aggregation.getTotal()),
+                        calculatePercentage(normalizeAmount(aggregation.getTotal()), normalizedTotal)))
                 .collect(Collectors.toList()));
 
-        summaryDto.setTotalsByMonth(totalsByPeriod.stream()
-                .map(view -> new IncomeSummaryDto.MonthlyTotalDto(
-                        formatPeriod(view.getPeriod()),
-                        normalizeAmount(view.getTotalAmount())))
-                .sorted(Comparator.comparing(IncomeSummaryDto.MonthlyTotalDto::getPeriod))
+        summaryDto.setTotalsByMonth(totalsByPeriod.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new IncomeSummaryDto.MonthlyTotalDto(
+                        formatPeriod(entry.getKey()),
+                        normalizeAmount(entry.getValue())))
                 .collect(Collectors.toList()));
 
-        summaryDto.setCategoryMonthlyTotals(buildCategoryMonthlySummary(categoryPeriodTotals));
-
-        summaryDto.setTotalAmount(normalizeAmount(totalAmount));
+        summaryDto.setCategoryMonthlyTotals(buildCategoryMonthlySummary(categoryAggregations));
         return summaryDto;
     }
 
@@ -223,23 +215,55 @@ public class IncomeRecordService {
         return distinct.isEmpty() ? null : distinct;
     }
 
-    private List<IncomeSummaryDto.CategoryMonthlySummaryDto> buildCategoryMonthlySummary(List<CategoryPeriodAmountView> categoryPeriodTotals) {
-        Map<Long, IncomeSummaryDto.CategoryMonthlySummaryDto> grouped = new LinkedHashMap<>();
-        for (CategoryPeriodAmountView view : categoryPeriodTotals) {
-            IncomeSummaryDto.CategoryMonthlySummaryDto summary = grouped.computeIfAbsent(
-                    view.getCategoryId(),
-                    key -> new IncomeSummaryDto.CategoryMonthlySummaryDto(
-                            view.getCategoryId(),
-                            view.getCategoryName(),
-                            new ArrayList<>()));
-            summary.getMonthlyTotals().add(new IncomeSummaryDto.MonthlyTotalDto(
-                    formatPeriod(view.getPeriod()),
-                    normalizeAmount(view.getTotalAmount())));
+    private List<IncomeSummaryDto.CategoryMonthlySummaryDto> buildCategoryMonthlySummary(Map<Long, CategoryAggregation> aggregations) {
+        return aggregations.values().stream()
+                .sorted(Comparator.comparing(CategoryAggregation::getCategoryName, String.CASE_INSENSITIVE_ORDER))
+                .map(aggregation -> {
+                    List<IncomeSummaryDto.MonthlyTotalDto> monthlyTotals = aggregation.getMonthlyTotals().entrySet().stream()
+                            .sorted(Map.Entry.comparingByKey())
+                            .map(entry -> new IncomeSummaryDto.MonthlyTotalDto(
+                                    formatPeriod(entry.getKey()),
+                                    normalizeAmount(entry.getValue())))
+                            .collect(Collectors.toList());
+                    return new IncomeSummaryDto.CategoryMonthlySummaryDto(
+                            aggregation.getCategoryId(),
+                            aggregation.getCategoryName(),
+                            monthlyTotals);
+                })
+                .collect(Collectors.toList());
+    }
+
+    private static class CategoryAggregation {
+        private final Long categoryId;
+        private final String categoryName;
+        private BigDecimal total = BigDecimal.ZERO;
+        private final Map<LocalDate, BigDecimal> monthlyTotals = new LinkedHashMap<>();
+
+        CategoryAggregation(Long categoryId, String categoryName) {
+            this.categoryId = categoryId;
+            this.categoryName = categoryName;
         }
 
-        return grouped.values().stream()
-                .peek(summary -> summary.getMonthlyTotals().sort(Comparator.comparing(IncomeSummaryDto.MonthlyTotalDto::getPeriod)))
-                .collect(Collectors.toList());
+        void addAmount(LocalDate period, BigDecimal amount) {
+            total = total.add(amount);
+            monthlyTotals.merge(period, amount, BigDecimal::add);
+        }
+
+        Long getCategoryId() {
+            return categoryId;
+        }
+
+        String getCategoryName() {
+            return categoryName;
+        }
+
+        BigDecimal getTotal() {
+            return total;
+        }
+
+        Map<LocalDate, BigDecimal> getMonthlyTotals() {
+            return monthlyTotals;
+        }
     }
 
     private IncomeRecord mapToEntity(IncomeRecordRequestDto dto, YearMonth defaultPeriod, User currentUser) {

@@ -3,12 +3,13 @@ package com.traker.traker.service;
 import com.traker.traker.dto.budget.BudgetRequestDto;
 import com.traker.traker.dto.budget.BudgetResponseDto;
 import com.traker.traker.entity.Budget;
+import com.traker.traker.entity.ExpenseRecord;
+import com.traker.traker.entity.IncomeRecord;
 import com.traker.traker.entity.User;
 import com.traker.traker.repository.BudgetRepository;
 import com.traker.traker.repository.ExpenseRecordRepository;
 import com.traker.traker.repository.IncomeRecordRepository;
 import com.traker.traker.repository.UserRepository;
-import com.traker.traker.repository.projection.PeriodAmountView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -77,22 +78,10 @@ public class BudgetService {
         LocalDate period = Objects.requireNonNull(filter.month()).atDay(1);
 
         Budget budget = budgetRepository.findByUserAndPeriod(user, period).orElse(null);
-        BigDecimal actualExpenses = extractTotalForPeriod(expenseRecordRepository.sumByPeriod(
-                user,
-                filter.fromDate(),
-                filter.toDate(),
-                filter.fromPeriod(),
-                filter.toPeriod(),
-                null),
-                period);
-        BigDecimal actualIncomes = extractTotalForPeriod(incomeRecordRepository.sumByPeriod(
-                user,
-                filter.fromDate(),
-                filter.toDate(),
-                filter.fromPeriod(),
-                filter.toPeriod(),
-                null),
-                period);
+        Map<LocalDate, BigDecimal> expenseTotals = aggregateExpenses(user, filter);
+        Map<LocalDate, BigDecimal> incomeTotals = aggregateIncomes(user, filter);
+        BigDecimal actualExpenses = expenseTotals.getOrDefault(period, normalizeAmount(null));
+        BigDecimal actualIncomes = incomeTotals.getOrDefault(period, normalizeAmount(null));
 
         return buildBudgetDto(period, budget, actualIncomes, actualExpenses);
     }
@@ -106,25 +95,8 @@ public class BudgetService {
         Map<LocalDate, Budget> budgetByPeriod = budgets.stream()
                 .collect(Collectors.toMap(Budget::getPeriod, Function.identity(), (left, right) -> left, LinkedHashMap::new));
 
-        Map<LocalDate, BigDecimal> expenseTotals = expenseRecordRepository.sumByPeriod(
-                        user,
-                        filter.fromDate(),
-                        filter.toDate(),
-                        filter.fromPeriod(),
-                        filter.toPeriod(),
-                        null)
-                .stream()
-                .collect(Collectors.toMap(PeriodAmountView::getPeriod, view -> normalizeAmount(view.getTotalAmount())));
-
-        Map<LocalDate, BigDecimal> incomeTotals = incomeRecordRepository.sumByPeriod(
-                        user,
-                        filter.fromDate(),
-                        filter.toDate(),
-                        filter.fromPeriod(),
-                        filter.toPeriod(),
-                        null)
-                .stream()
-                .collect(Collectors.toMap(PeriodAmountView::getPeriod, view -> normalizeAmount(view.getTotalAmount())));
+        Map<LocalDate, BigDecimal> expenseTotals = aggregateExpenses(user, filter);
+        Map<LocalDate, BigDecimal> incomeTotals = aggregateIncomes(user, filter);
 
         SortedSet<LocalDate> periods = collectPeriods(filter, budgetByPeriod.keySet(), expenseTotals.keySet(), incomeTotals.keySet());
 
@@ -201,12 +173,36 @@ public class BudgetService {
         return dto;
     }
 
-    private BigDecimal extractTotalForPeriod(List<PeriodAmountView> totals, LocalDate period) {
-        return totals.stream()
-                .filter(view -> view.getPeriod().equals(period))
-                .map(view -> normalizeAmount(view.getTotalAmount()))
-                .findFirst()
-                .orElse(normalizeAmount(null));
+    private Map<LocalDate, BigDecimal> aggregateExpenses(User user, FinanceFilter filter) {
+        List<ExpenseRecord> expenses = expenseRecordRepository.findByUserAndFilter(
+                user,
+                filter.fromDate(),
+                filter.toDate(),
+                filter.fromPeriod(),
+                filter.toPeriod(),
+                null);
+        return expenses.stream()
+                .collect(Collectors.toMap(
+                        ExpenseRecord::getPeriod,
+                        record -> normalizeAmount(record.getAmount()),
+                        BigDecimal::add,
+                        LinkedHashMap::new));
+    }
+
+    private Map<LocalDate, BigDecimal> aggregateIncomes(User user, FinanceFilter filter) {
+        List<IncomeRecord> incomes = incomeRecordRepository.findByUserAndFilter(
+                user,
+                filter.fromDate(),
+                filter.toDate(),
+                filter.fromPeriod(),
+                filter.toPeriod(),
+                null);
+        return incomes.stream()
+                .collect(Collectors.toMap(
+                        IncomeRecord::getPeriod,
+                        record -> normalizeAmount(record.getAmount()),
+                        BigDecimal::add,
+                        LinkedHashMap::new));
     }
 
     private User getCurrentUser() {

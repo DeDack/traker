@@ -14,6 +14,7 @@ import com.traker.traker.mapper.RoleMapper;
 import com.traker.traker.mapper.UserMapper;
 import com.traker.traker.repository.RoleRepository;
 import com.traker.traker.repository.UserRepository;
+import com.traker.traker.security.UserEncryptionService;
 import com.traker.traker.utils.CommonUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
@@ -41,6 +42,7 @@ public class UserService extends DefaultService<Long, User, UserDto> {
     RoleMapper roleMapper;
     PasswordEncoder passwordEncoder;
     AuthService authService;
+    UserEncryptionService userEncryptionService;
 
     /**
      * Конструктор для инициализации сервиса и зависимостей.
@@ -57,7 +59,8 @@ public class UserService extends DefaultService<Long, User, UserDto> {
                        RoleRepository roleRepository,
                        RoleMapper roleMapper,
                        PasswordEncoder passwordEncoder,
-                       AuthService authService) {
+                       AuthService authService,
+                       UserEncryptionService userEncryptionService) {
         super(userRepository, userMapper, id -> new NotFoundException("User", id) {
             @Override
             public String getEntityClassName() {
@@ -70,6 +73,7 @@ public class UserService extends DefaultService<Long, User, UserDto> {
         this.roleMapper = roleMapper;
         this.passwordEncoder = passwordEncoder;
         this.authService = authService;
+        this.userEncryptionService = userEncryptionService;
     }
 
     /**
@@ -89,6 +93,7 @@ public class UserService extends DefaultService<Long, User, UserDto> {
         User user = userMapper.toEntity(createUserDto);
         user.setUsername(normalizedUsername);
         user.setPassword(passwordEncoder.encode(createUserDto.getPassword()));
+        userEncryptionService.assignFreshKey(user);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 

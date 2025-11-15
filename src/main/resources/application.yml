@@ -33,3 +33,7 @@ jwt:
 auth:
   token_type: Bearer
   scope: api.read api.write
+
+app:
+  security:
+    master-key: ${APP_MASTER_KEY:V2FsbGV0Qm9sdFNlY3VyZUtleTIwMjQ=}
