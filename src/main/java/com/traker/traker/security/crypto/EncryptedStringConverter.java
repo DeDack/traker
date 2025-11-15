@@ -18,7 +18,7 @@ public class EncryptedStringConverter implements AttributeConverter<String, Stri
         }
     }
 
-    static void registerEncryptionService(DataEncryptionService service) {
+    public static void registerEncryptionService(DataEncryptionService service) {
         encryptionService = service;
     }
 

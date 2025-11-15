@@ -20,7 +20,7 @@ public class EncryptedBigDecimalConverter implements AttributeConverter<BigDecim
         }
     }
 
-    static void registerEncryptionService(DataEncryptionService service) {
+    public static void registerEncryptionService(DataEncryptionService service) {
         encryptionService = service;
     }
 
