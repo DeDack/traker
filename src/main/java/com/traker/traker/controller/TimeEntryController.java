@@ -22,7 +22,7 @@ public class TimeEntryController implements TimeEntryControllerApi {
      */
     @Override
     @PreAuthorize("isAuthenticated()")
-    public int getDailyStats(@RequestParam("date") String date) {
+    public double getDailyStats(@RequestParam("date") String date) {
         return timeEntryService.getTotalHoursWorked(date);
     }
 }

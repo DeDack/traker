@@ -119,3 +119,27 @@ databaseChangeLog:
       changes:
         - sqlFile:
             path: db/changelog/create/create-budget.sql
+  - changeSet:
+      id: "17"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-time_entry-add-end-time.sql
+  - changeSet:
+      id: "18"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-status-order-index.sql
+  - changeSet:
+      id: "19"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-users-add-encryption-key.sql
+  - changeSet:
+      id: "20"
+      author: "am"
+      changes:
+        - sqlFile:
+            path: db/changelog/update/update-finance-encrypted-columns.sql

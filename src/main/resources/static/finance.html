@@ -53,6 +53,16 @@
         .multi-select {
             min-width: 220px;
         }
+        .category-checkbox-list {
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .category-checkbox-list .form-check {
+            margin-bottom: 4px;
+        }
+        .category-checkbox-list .form-check:last-child {
+            margin-bottom: 0;
+        }
         .detail-expense-list .list-group-item {
             display: flex;
             justify-content: space-between;
@@ -82,87 +92,13 @@
             <p class="text-muted mb-0">Планируйте бюджет, управляйте доходами и расходами, анализируйте динамику как в мобильном банке</p>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary pill-button" onclick="window.location.href='/tracker.html'">⏱ Трекер времени</button>
-            <button class="btn btn-outline-secondary pill-button" onclick="window.location.href='/new-tracker.html'">📋 Карточки дня</button>
+            <button class="btn btn-outline-secondary pill-button" onclick="window.location.href='/new-tracker.html'">📋 Новый трекер</button>
+            <button class="btn btn-outline-secondary pill-button" onclick="window.location.href='/tracker.html'">⏱ Классический трекер</button>
             <button class="btn btn-primary pill-button" onclick="logout()">Выйти</button>
         </div>
     </div>
 
     <div class="alert" id="message"></div>
-
-    <div class="section-card">
-        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
-            <div>
-                <h2 class="section-title">Категории</h2>
-                <p class="text-muted mb-0">Создайте категории для расходов и доходов, чтобы удобно сегментировать аналитику</p>
-            </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary pill-button" id="refreshCategoriesBtn">Обновить списки</button>
-            </div>
-        </div>
-        <div class="row g-4">
-            <div class="col-lg-6">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">Категории расходов</h5>
-                        <form id="expenseCategoryForm" class="row g-2 mb-3">
-                            <div class="col-md-5">
-                                <input type="text" class="form-control" id="expenseCategoryName" placeholder="Название" required>
-                            </div>
-                            <div class="col-md-5">
-                                <input type="text" class="form-control" id="expenseCategoryDescription" placeholder="Описание">
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button type="submit" class="btn btn-primary">Добавить</button>
-                            </div>
-                        </form>
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle">
-                                <thead>
-                                <tr>
-                                    <th>Название</th>
-                                    <th>Описание</th>
-                                    <th class="text-end">Действия</th>
-                                </tr>
-                                </thead>
-                                <tbody id="expenseCategoryTable"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">Категории доходов</h5>
-                        <form id="incomeCategoryForm" class="row g-2 mb-3">
-                            <div class="col-md-5">
-                                <input type="text" class="form-control" id="incomeCategoryName" placeholder="Название" required>
-                            </div>
-                            <div class="col-md-5">
-                                <input type="text" class="form-control" id="incomeCategoryDescription" placeholder="Описание">
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button type="submit" class="btn btn-success">Добавить</button>
-                            </div>
-                        </form>
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle">
-                                <thead>
-                                <tr>
-                                    <th>Название</th>
-                                    <th>Описание</th>
-                                    <th class="text-end">Действия</th>
-                                </tr>
-                                </thead>
-                                <tbody id="incomeCategoryTable"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <div class="section-card">
         <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
@@ -240,46 +176,27 @@
     </div>
 
     <div class="section-card">
-        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
             <div>
-                <h2 class="section-title">Бюджет месяца</h2>
-                <p class="text-muted mb-0">Задайте цели по доходам, расходам и накоплениям — остаток посчитается автоматически</p>
-            </div>
-            <div class="d-flex gap-2">
-                <input type="month" class="form-control" id="budgetMonth">
-                <button class="btn btn-outline-primary pill-button" id="loadBudget">Загрузить</button>
-            </div>
-        </div>
-        <form id="budgetForm" class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">План доходов</label>
-                <input type="number" min="0" step="0.01" class="form-control" id="plannedIncome" placeholder="0.00">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">План расходов</label>
-                <input type="number" min="0" step="0.01" class="form-control" id="plannedExpense" placeholder="0.00">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Цель накоплений</label>
-                <input type="number" min="0" step="0.01" class="form-control" id="savingsGoal" placeholder="0.00">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Заметка</label>
-                <input type="text" class="form-control" id="budgetNotes" placeholder="Комментарий">
-            </div>
-            <div class="col-12 d-flex justify-content-end">
-                <button type="submit" class="btn btn-primary pill-button">Сохранить бюджет</button>
-            </div>
-        </form>
-        <div class="row g-4 mt-2" id="budgetSummaryCards"></div>
-    </div>
-
-    <div class="section-card">
-        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
-            <div>
-                <h2 class="section-title">Аналитика и диаграммы</h2>
+                <h2 class="section-title mb-1">Аналитика и диаграммы</h2>
                 <p class="text-muted mb-0">Выбирайте месяц или интервал и смотрите визуализации по категориям и динамике</p>
             </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button id="analyticsSectionToggle"
+                        class="btn btn-outline-secondary pill-button"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#analyticsSectionCollapse"
+                        aria-expanded="true"
+                        aria-controls="analyticsSectionCollapse"
+                        data-expanded-label="Свернуть аналитику"
+                        data-collapsed-label="Развернуть аналитику"
+                        data-storage-key="finance.analytics">
+                    Свернуть аналитику
+                </button>
+            </div>
+        </div>
+        <div id="analyticsSectionCollapse" class="collapse show mt-3">
             <form id="analyticsFilters" class="row gy-2 gx-2 align-items-end">
                 <div class="col-auto">
                     <label class="form-label small text-muted mb-1" for="filterFrom">С даты</label>
@@ -294,54 +211,54 @@
                     <input type="month" class="form-control" id="filterMonth">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small text-muted mb-1" for="expenseFilterCategories">Категории расходов</label>
-                    <select id="expenseFilterCategories" class="form-select multi-select" multiple size="4"></select>
+                    <label class="form-label small text-muted mb-1">Категории расходов</label>
+                    <div id="expenseFilterCategories" class="category-checkbox-list border rounded p-2"></div>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small text-muted mb-1" for="incomeFilterCategories">Категории доходов</label>
-                    <select id="incomeFilterCategories" class="form-select multi-select" multiple size="4"></select>
+                    <label class="form-label small text-muted mb-1">Категории доходов</label>
+                    <div id="incomeFilterCategories" class="category-checkbox-list border rounded p-2"></div>
                 </div>
                 <div class="col-auto align-self-end">
                     <button type="submit" class="btn btn-outline-primary pill-button">Обновить</button>
                 </div>
             </form>
-        </div>
-        <div class="row g-3 mb-3" id="dashboardSummary"></div>
-        <div class="row g-4">
-            <div class="col-xl-4">
-                <div class="card h-100 chart-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Расходы по категориям</h5>
-                        <canvas id="expenseByCategoryChart"></canvas>
-                        <div class="mt-3" id="expenseByCategoryLegend"></div>
+            <div class="row g-3 mb-3" id="dashboardSummary"></div>
+            <div class="row g-4">
+                <div class="col-xl-4">
+                    <div class="card h-100 chart-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Расходы по категориям</h5>
+                            <canvas id="expenseByCategoryChart"></canvas>
+                            <div class="mt-3" id="expenseByCategoryLegend"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-4">
+                    <div class="card h-100 chart-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Доходы по категориям</h5>
+                            <canvas id="incomeByCategoryChart"></canvas>
+                            <div class="mt-3" id="incomeByCategoryLegend"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-4">
+                    <div class="card h-100 chart-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Баланс по месяцам</h5>
+                            <canvas id="cashFlowChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-xl-4">
-                <div class="card h-100 chart-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Доходы по категориям</h5>
-                        <canvas id="incomeByCategoryChart"></canvas>
-                        <div class="mt-3" id="incomeByCategoryLegend"></div>
+            <div class="card mt-4">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                        <h5 class="card-title mb-0">Детализация по категориям</h5>
+                        <div id="categoryToggleContainer" class="d-flex flex-wrap gap-2"></div>
                     </div>
+                    <canvas id="categoryTrendChart"></canvas>
                 </div>
-            </div>
-            <div class="col-xl-4">
-                <div class="card h-100 chart-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Баланс по месяцам</h5>
-                        <canvas id="cashFlowChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="card mt-4">
-            <div class="card-body">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                    <h5 class="card-title mb-0">Детализация по категориям</h5>
-                    <div id="categoryToggleContainer" class="d-flex flex-wrap gap-2"></div>
-                </div>
-                <canvas id="categoryTrendChart"></canvas>
             </div>
         </div>
     </div>
@@ -362,8 +279,8 @@
                 <input type="date" class="form-control" id="detailTo" required>
             </div>
             <div class="col-md-4">
-                <label class="form-label small text-muted mb-1" for="detailCategories">Категории расходов</label>
-                <select id="detailCategories" class="form-select multi-select" multiple size="4"></select>
+                <span class="form-label small text-muted mb-1 d-block">Категории расходов</span>
+                <div id="detailCategories" class="category-checkbox-list border rounded p-2"></div>
                 <div class="form-text">Если не выбрано ни одной, используются все категории</div>
             </div>
             <div class="col-md-2 align-self-end">
@@ -499,6 +416,145 @@
                         <tr><td colspan="6" class="text-muted text-center">Выберите период и обновите список</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+            <div>
+                <h2 class="section-title mb-1">Бюджет месяца</h2>
+                <p class="text-muted mb-0">Задайте цели по доходам, расходам и накоплениям — остаток посчитается автоматически</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="d-flex gap-2">
+                    <input type="month" class="form-control" id="budgetMonth">
+                    <button class="btn btn-outline-primary pill-button" id="loadBudget">Загрузить</button>
+                </div>
+                <button id="budgetSectionToggle"
+                        class="btn btn-outline-secondary pill-button"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#budgetSectionCollapse"
+                        aria-expanded="true"
+                        aria-controls="budgetSectionCollapse"
+                        data-expanded-label="Свернуть бюджет"
+                        data-collapsed-label="Развернуть бюджет"
+                        data-storage-key="finance.budget">
+                    Свернуть бюджет
+                </button>
+            </div>
+        </div>
+        <div id="budgetSectionCollapse" class="collapse show mt-3">
+            <form id="budgetForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">План доходов</label>
+                    <input type="number" min="0" step="0.01" class="form-control" id="plannedIncome" placeholder="0.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">План расходов</label>
+                    <input type="number" min="0" step="0.01" class="form-control" id="plannedExpense" placeholder="0.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Цель накоплений</label>
+                    <input type="number" min="0" step="0.01" class="form-control" id="savingsGoal" placeholder="0.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Заметка</label>
+                    <input type="text" class="form-control" id="budgetNotes" placeholder="Комментарий">
+                </div>
+                <div class="col-12 d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary pill-button">Сохранить бюджет</button>
+                </div>
+            </form>
+            <div class="row g-4 mt-2" id="budgetSummaryCards"></div>
+        </div>
+    </div>
+
+    <div class="section-card mb-5">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+            <div>
+                <h2 class="section-title mb-1">Категории</h2>
+                <p class="text-muted mb-0">Создайте категории для расходов и доходов, чтобы удобно сегментировать аналитику</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button class="btn btn-outline-primary pill-button" id="refreshCategoriesBtn">Обновить списки</button>
+                <button id="categorySectionToggle"
+                        class="btn btn-outline-secondary pill-button"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#categorySectionCollapse"
+                        aria-expanded="true"
+                        aria-controls="categorySectionCollapse"
+                        data-expanded-label="Свернуть категории"
+                        data-collapsed-label="Развернуть категории"
+                        data-storage-key="finance.categories">
+                    Свернуть категории
+                </button>
+            </div>
+        </div>
+        <div id="categorySectionCollapse" class="collapse show mt-3">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Категории расходов</h5>
+                            <form id="expenseCategoryForm" class="row g-2 mb-3">
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control" id="expenseCategoryName" placeholder="Название" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control" id="expenseCategoryDescription" placeholder="Описание">
+                                </div>
+                                <div class="col-md-2 d-grid">
+                                    <button type="submit" class="btn btn-primary">Добавить</button>
+                                </div>
+                            </form>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Описание</th>
+                                        <th class="text-end">Действия</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="expenseCategoryTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Категории доходов</h5>
+                            <form id="incomeCategoryForm" class="row g-2 mb-3">
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control" id="incomeCategoryName" placeholder="Название" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control" id="incomeCategoryDescription" placeholder="Описание">
+                                </div>
+                                <div class="col-md-2 d-grid">
+                                    <button type="submit" class="btn btn-success">Добавить</button>
+                                </div>
+                            </form>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Описание</th>
+                                        <th class="text-end">Действия</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="incomeCategoryTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

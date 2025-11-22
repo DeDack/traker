@@ -1,16 +1,17 @@
 package com.traker.traker.service;
 
+import com.traker.traker.dto.StatusDto;
+import com.traker.traker.dto.TimeEntryDto;
 import com.traker.traker.entity.DayLog;
 import com.traker.traker.entity.Status;
 import com.traker.traker.entity.TimeEntry;
 import com.traker.traker.entity.User;
 import com.traker.traker.exception.StatusNotFoundException;
+import com.traker.traker.mapper.TimeEntryMapper;
 import com.traker.traker.repository.DayLogRepository;
 import com.traker.traker.repository.StatusRepository;
 import com.traker.traker.repository.TimeEntryRepository;
 import com.traker.traker.repository.UserRepository;
-import com.traker.traker.dto.TimeEntryDto;
-import com.traker.traker.mapper.TimeEntryMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -19,11 +20,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 
 /**
  * Сервисный класс для управления сущностями DayLog и TimeEntry.
@@ -48,8 +51,8 @@ public class DayLogService {
         LocalDate localDate = parseDate(date);
         User currentUser = getCurrentUser();
         Optional<DayLog> dayLog = dayLogRepository.findByDate(localDate);
-        return dayLog.map(dl -> timeEntryRepository.findByDayLogAndUser(dl, currentUser).stream()
-                        .sorted(java.util.Comparator.comparingInt(TimeEntry::getHour)
+        return dayLog.map(dl -> timeEntryRepository.findByDayLogAndUserOrderByHourAscMinuteAsc(dl, currentUser).stream()
+                        .sorted(Comparator.comparingInt(TimeEntry::getHour)
                                 .thenComparingInt(TimeEntry::getMinute))
                         .map(timeEntryMapper::toDto)
                         .collect(Collectors.toList()))
@@ -81,42 +84,60 @@ public class DayLogService {
                     return createNewDayLog(localDate);
                 });
 
-        int hour = timeEntryDto.getHour();
-        int minute = timeEntryDto.getMinute();
-        logger.info("Время из объекта timeEntryDto: {}:{}", hour, minute);
+        validateInterval(timeEntryDto.getHour(), timeEntryDto.getMinute(), timeEntryDto.getEndHour(), timeEntryDto.getEndMinute());
 
-        TimeEntry timeEntry = timeEntryRepository.findByDayLogAndHourAndMinuteAndUser(dayLog, hour, minute, currentUser)
-                .orElseGet(() -> {
-                    logger.info("TimeEntry не найден для DayLog: {}, времени: {}:{} и пользователя: {}. Создание нового TimeEntry.", dayLog, hour, minute, currentUser.getUsername());
-                    return createNewTimeEntry(dayLog, hour, minute, currentUser);
-                });
+        TimeEntry timeEntry = resolveExistingEntry(dayLog, currentUser, timeEntryDto);
 
-        Status status;
-        if (timeEntryDto.getStatus() != null && timeEntryDto.getStatus().getName() != null) {
-            String statusName = timeEntryDto.getStatus().getName();
-            logger.info("Статус, указанный в timeEntryDto: {}", statusName);
-            status = statusRepository.findByNameAndUser(statusName, currentUser)
-                    .orElseThrow(() -> new StatusNotFoundException(statusName));
-        } else {
-            logger.info("Статус не указан в timeEntryDto. Использование статуса по умолчанию.");
-            status = statusRepository.findByNameAndUser("Default", currentUser)
-                    .orElseGet(() -> {
-                        logger.info("Статус по умолчанию 'Default' не найден. Создание нового.");
-                        Status defaultStatus = new Status();
-                        defaultStatus.setName("Default");
-                        defaultStatus.setUser(currentUser);
-                        return statusRepository.save(defaultStatus);
-                    });
+        int startMinutes = toMinutes(timeEntryDto.getHour(), timeEntryDto.getMinute());
+        int endMinutes = toMinutes(timeEntryDto.getEndHour(), timeEntryDto.getEndMinute());
+
+        Long excludeId = timeEntry.getId();
+        boolean hasOverlap = !timeEntryRepository
+                .findOverlappingEntries(dayLog, currentUser, startMinutes, endMinutes, excludeId)
+                .isEmpty();
+        if (hasOverlap) {
+            throw new IllegalArgumentException("Выбранный интервал пересекается с уже существующей активностью");
         }
 
-        timeEntryMapper.updateEntityFromDto(timeEntryDto, timeEntry);
-        timeEntry.setStatus(status);
+        timeEntry.setDayLog(dayLog);
+        timeEntry.setHour(timeEntryDto.getHour());
+        timeEntry.setMinute(timeEntryDto.getMinute());
+        timeEntry.setEndHour(timeEntryDto.getEndHour());
+        timeEntry.setEndMinute(timeEntryDto.getEndMinute());
+        timeEntry.setWorked(timeEntryDto.isWorked());
+        timeEntry.setComment(StringUtils.hasText(timeEntryDto.getComment()) ? timeEntryDto.getComment().trim() : null);
+        timeEntry.setStatus(resolveStatus(timeEntryDto.getStatus(), currentUser));
         timeEntry.setUser(currentUser);
 
         TimeEntry savedTimeEntry = timeEntryRepository.save(timeEntry);
         logger.info("Сохраненный TimeEntry: {}", savedTimeEntry);
 
         return timeEntryMapper.toDto(savedTimeEntry);
+    }
+
+    @Transactional
+    public void deleteTimeEntry(String date, int hour, int minute) {
+        LocalDate localDate = parseDate(date);
+        User currentUser = getCurrentUser();
+        dayLogRepository.findByDate(localDate).ifPresent(dayLog ->
+                timeEntryRepository.findByDayLogAndHourAndMinuteAndUser(dayLog, hour, minute, currentUser)
+                        .ifPresent(entry -> {
+                            timeEntryRepository.delete(entry);
+                            cleanupDayLogIfEmpty(dayLog);
+                        }));
+    }
+
+    @Transactional
+    public void deleteTimeEntry(Long entryId) {
+        if (entryId == null) {
+            return;
+        }
+        User currentUser = getCurrentUser();
+        TimeEntry entry = timeEntryRepository.findByIdAndUser(entryId, currentUser)
+                .orElseThrow(() -> new IllegalArgumentException("Запись не найдена или недоступна"));
+        DayLog dayLog = entry.getDayLog();
+        timeEntryRepository.delete(entry);
+        cleanupDayLogIfEmpty(dayLog);
     }
 
     /**
@@ -150,9 +171,9 @@ public class DayLogService {
      * Создает новый объект TimeEntry для заданного DayLog, времени и пользователя.
      *
      * @param dayLog объект DayLog
-     * @param hour час записи времени
+     * @param hour   час записи времени
      * @param minute минута записи времени
-     * @param user текущий пользователь
+     * @param user   текущий пользователь
      * @return новый объект TimeEntry
      */
     private TimeEntry createNewTimeEntry(DayLog dayLog, int hour, int minute, User user) {
@@ -160,8 +181,74 @@ public class DayLogService {
         newTimeEntry.setDayLog(dayLog);
         newTimeEntry.setHour(hour);
         newTimeEntry.setMinute(minute);
+        newTimeEntry.setEndHour(Math.min(23, hour + 1));
+        newTimeEntry.setEndMinute(minute);
         newTimeEntry.setUser(user);
         return newTimeEntry;
+    }
+
+    private TimeEntry resolveExistingEntry(DayLog dayLog, User user, TimeEntryDto timeEntryDto) {
+        if (timeEntryDto.getId() != null) {
+            return timeEntryRepository.findByIdAndUser(timeEntryDto.getId(), user)
+                    .orElseThrow(() -> new IllegalArgumentException("Запись не найдена или недоступна"));
+        }
+        return timeEntryRepository
+                .findByDayLogAndHourAndMinuteAndUser(dayLog, timeEntryDto.getHour(), timeEntryDto.getMinute(), user)
+                .orElseGet(() -> createNewTimeEntry(dayLog, timeEntryDto.getHour(), timeEntryDto.getMinute(), user));
+    }
+
+    private Status resolveStatus(StatusDto statusDto, User user) {
+        if (statusDto == null) {
+            return ensureDefaultStatus(user);
+        }
+
+        if (statusDto.getId() != null) {
+            return statusRepository.findByIdAndUser(statusDto.getId(), user)
+                    .orElseThrow(() -> new StatusNotFoundException(statusDto.getId()));
+        }
+
+        if (StringUtils.hasText(statusDto.getName())) {
+            return statusRepository.findByNameAndUser(statusDto.getName(), user)
+                    .orElseThrow(() -> new StatusNotFoundException(statusDto.getName()));
+        }
+
+        return ensureDefaultStatus(user);
+    }
+
+    private Status ensureDefaultStatus(User user) {
+        return statusRepository.findByNameAndUser("Default", user)
+                .orElseGet(() -> {
+                    Status defaultStatus = new Status();
+                    defaultStatus.setName("Default");
+                    defaultStatus.setUser(user);
+                    return statusRepository.save(defaultStatus);
+                });
+    }
+
+    private void validateInterval(int startHour, int startMinute, int endHour, int endMinute) {
+        if (!isValidTime(startHour, startMinute) || !isValidTime(endHour, endMinute)) {
+            throw new IllegalArgumentException("Некорректно указано время начала или окончания");
+        }
+        if (endHour < startHour || (endHour == startHour && endMinute <= startMinute)) {
+            throw new IllegalArgumentException("Время окончания должно быть позже времени начала");
+        }
+    }
+
+    private boolean isValidTime(int hour, int minute) {
+        return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+    }
+
+    private int toMinutes(int hour, int minute) {
+        return hour * 60 + minute;
+    }
+
+    private void cleanupDayLogIfEmpty(DayLog dayLog) {
+        if (dayLog == null) {
+            return;
+        }
+        if (timeEntryRepository.findByDayLog(dayLog).isEmpty()) {
+            dayLogRepository.delete(dayLog);
+        }
     }
 
     /**

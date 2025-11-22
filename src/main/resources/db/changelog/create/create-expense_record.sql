@@ -2,9 +2,9 @@ CREATE TABLE IF NOT EXISTS expense_record (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users (id),
     category_id BIGINT NOT NULL REFERENCES expense_category (id),
-    title VARCHAR(255) NOT NULL,
+    title TEXT NOT NULL,
     description TEXT,
-    amount NUMERIC(19, 2) NOT NULL,
+    amount TEXT NOT NULL,
     period_start DATE NOT NULL,
     expense_date DATE
 );

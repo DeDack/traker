@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +35,12 @@ public class StatusService extends DefaultService<Long, Status, StatusDto> {
         User currentUser = getCurrentUser();
         Status status = statusMapper.toEntity(statusDto);
         status.setUser(currentUser);
+        int nextOrder = statusDto.getOrder() != null
+                ? Math.max(0, statusDto.getOrder())
+                : statusRepository.findTopByUserOrderByOrderIndexDesc(currentUser)
+                .map(existing -> existing.getOrderIndex() + 1)
+                .orElse(0);
+        status.setOrderIndex(nextOrder);
         Status savedStatus = statusRepository.save(status);
         return statusMapper.toDto(savedStatus);
     }
@@ -42,6 +50,9 @@ public class StatusService extends DefaultService<Long, Status, StatusDto> {
         Status status = statusRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new StatusNotFoundException(id));
         status.setName(statusDto.getName());
+        if (statusDto.getOrder() != null) {
+            status.setOrderIndex(Math.max(0, statusDto.getOrder()));
+        }
         Status updatedStatus = statusRepository.save(status);
         return statusMapper.toDto(updatedStatus);
     }
@@ -72,9 +83,14 @@ public class StatusService extends DefaultService<Long, Status, StatusDto> {
     @Override
     public List<StatusDto> findAll() {
         User currentUser = getCurrentUser();
-        return statusRepository.findByUser(currentUser).stream()
+        List<StatusDto> statuses = statusRepository.findByUserOrderByOrderIndexAscNameAsc(currentUser).stream()
                 .map(statusMapper::toDto)
+                .sorted(Comparator.comparing((StatusDto dto) -> dto.getOrder() == null ? 0 : dto.getOrder())
+                        .thenComparing(StatusDto::getName, String.CASE_INSENSITIVE_ORDER))
                 .collect(Collectors.toList());
+        AtomicInteger orderCounter = new AtomicInteger();
+        statuses.forEach(dto -> dto.setOrder(orderCounter.getAndIncrement()));
+        return statuses;
     }
 
     private User getCurrentUser() {

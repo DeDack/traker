@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -34,6 +35,14 @@ public class User extends DefaultEntity implements UserDetails {
 
     @Column(nullable = false)
     private String password;
+
+    @Column(name = "encrypted_data_key")
+    @ToString.Exclude
+    private String encryptedDataKey;
+
+    @Transient
+    @ToString.Exclude
+    private byte[] decryptedDataKey;
 
     private LocalDateTime createdAt;
 

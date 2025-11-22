@@ -22,4 +22,7 @@ public class Status extends DefaultEntity {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @Column(name = "order_index", nullable = false)
+    private int orderIndex;
 }

@@ -34,7 +34,7 @@ public class TimeEntryService {
      * @return общее количество отработанных часов за указанную дату
      * @throws IllegalArgumentException если формат даты неверный
      */
-    public int getTotalHoursWorked(String dateStr) {
+    public double getTotalHoursWorked(String dateStr) {
         LocalDate date = parseDate(dateStr);
         User currentUser = getCurrentUser();
 
@@ -48,9 +48,18 @@ public class TimeEntryService {
 
         List<TimeEntry> entries = timeEntryRepository.findByDayLogAndUser(dayLog, currentUser);
 
-        return (int) entries.stream()
+        int totalMinutes = entries.stream()
                 .filter(TimeEntry::isWorked)
-                .count();
+                .mapToInt(this::calculateDurationMinutes)
+                .sum();
+
+        return totalMinutes / 60.0;
+    }
+
+    private int calculateDurationMinutes(TimeEntry entry) {
+        int startMinutes = entry.getHour() * 60 + entry.getMinute();
+        int endMinutes = entry.getEndHour() * 60 + entry.getEndMinute();
+        return Math.max(endMinutes - startMinutes, 0);
     }
 
     /**

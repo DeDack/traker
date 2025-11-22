@@ -6,6 +6,8 @@
   <title>Новый трекер времени</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
   <style>
     #loader {
       display: none;
@@ -34,35 +36,55 @@
       to { opacity: 1; }
     }
     .compact-card .card-body {
-      padding: 0.5rem;
+      padding: 0.75rem;
     }
     .compact-card .card-title {
-      font-size: 1rem;
+      font-size: 1.05rem;
     }
     .compact-card .card-text {
-      font-size: 0.875rem;
+      font-size: 0.9rem;
     }
     .compact-card .card-footer {
-      padding: 0.25rem;
+      padding: 0.5rem;
+    }
+    #statusLegend li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .time-picker-group.input-group {
+      width: 100%;
+    }
+    .time-picker-button {
+      min-width: 3rem;
+    }
+    .status-checkbox-list {
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .status-checkbox-list .form-check {
+      margin-bottom: 0.25rem;
+    }
+    .status-checkbox-list .form-check:last-child {
+      margin-bottom: 0;
     }
   </style>
 </head>
 <body class="bg-light">
 <div id="loader"></div>
 <div class="container mt-4">
-  <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="display-4 text-primary">Новый трекер времени</h1>
-    <div>
-      <span id="username" class="h3 text-dark me-3"></span>
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <h1 class="display-5 text-primary mb-0">Новый трекер времени</h1>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <button class="btn btn-outline-secondary" onclick="window.location.href='/tracker.html'">⏱️ Классический трекер</button>
+      <button class="btn btn-outline-primary" onclick="window.location.href='/finance.html'">💳 Финансы</button>
+      <span id="username" class="h4 text-dark mb-0"></span>
       <button class="btn btn-danger" onclick="logout()">Выйти</button>
     </div>
   </div>
 
-  <!-- Message -->
   <div id="message" class="mb-4"></div>
 
-  <!-- Form -->
   <div class="card p-4 mb-4">
     <h2 class="h4 mb-3 text-dark">Добавить запись времени</h2>
     <div class="row g-3">
@@ -72,42 +94,165 @@
       </div>
       <div class="col-md-4">
         <label class="form-label">Начало</label>
-        <input type="time" id="startTime" class="form-control">
+        <input type="time" id="startTime" class="form-control time-input" step="60">
       </div>
       <div class="col-md-4">
         <label class="form-label">Конец</label>
-        <input type="time" id="endTime" class="form-control">
+        <input type="time" id="endTime" class="form-control time-input" step="60">
       </div>
       <div class="col-md-4">
         <div class="form-check">
           <input type="checkbox" id="worked" class="form-check-input">
-          <label class="form-check-label">Отработано</label>
+          <label class="form-check-label" for="worked">Отработано</label>
         </div>
       </div>
       <div class="col-md-8">
-        <label class="form-label">Статус</label>
+        <label class="form-label" for="status">Статус</label>
         <select id="status" class="form-select">
           <option value="">—</option>
         </select>
       </div>
       <div class="col-12">
-        <label class="form-label">Комментарий</label>
+        <label class="form-label" for="comment">Комментарий</label>
         <input type="text" id="comment" class="form-control" placeholder="Введите комментарий">
       </div>
       <div class="col-12">
-        <button id="addTimeEntryButton" class="btn btn-primary w-100" onclick="addTimeEntry()">Добавить запись</button>
+        <button id="addTimeEntryButton" class="btn btn-primary w-100" onclick="addTimeEntry()">Сохранить запись</button>
       </div>
     </div>
   </div>
 
-  <!-- Worked Hours -->
-  <div class="mb-4">
-    <p class="h5 text-dark">Отработано часов: <span id="workedHours">0</span></p>
+  <div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between flex-wrap gap-3 align-items-center">
+      <h2 class="h4 mb-0 text-dark">Отработано времени</h2>
+      <p class="h5 text-primary mb-0"><span id="workedHours">0 ч</span></p>
+    </div>
   </div>
 
-  <!-- Time Entries List -->
-  <div id="timeEntriesList" class="row row-cols-1 row-cols-md-2 g-3"></div>
+  <div class="card p-4 mb-4">
+    <h2 class="h4 mb-3 text-dark">Карточки дня</h2>
+    <div id="timeEntriesList" class="row row-cols-1 row-cols-md-2 g-3"></div>
+  </div>
+
+  <div class="card p-4 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <h2 class="h4 mb-0 text-dark">Аналитика дня</h2>
+      <button id="analyticsToggle"
+              class="btn btn-outline-secondary"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#analyticsCollapse"
+              aria-expanded="true"
+              aria-controls="analyticsCollapse"
+              data-expanded-label="Свернуть аналитику"
+              data-collapsed-label="Развернуть аналитику"
+              data-storage-key="newTracker.analytics">
+        Свернуть аналитику
+      </button>
+    </div>
+    <div id="analyticsCollapse" class="collapse show mt-3">
+      <div class="mb-3" style="max-width:360px;">
+        <label class="form-label mb-1">Фильтр по статусам</label>
+        <div id="statusFilter" class="status-checkbox-list border rounded p-2"></div>
+        <small class="text-muted">Выберите статусы для отображения на диаграммах</small>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <canvas id="timeByStatusChart" height="260"></canvas>
+        </div>
+        <div class="col-lg-6">
+          <canvas id="timeByStatusBar" height="260"></canvas>
+        </div>
+      </div>
+      <div class="mt-4">
+        <h3 class="h5">Разбивка по статусам</h3>
+        <ul id="statusLegend" class="list-group"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <h2 class="h4 mb-0 text-dark">Быстрые слоты по часам</h2>
+      <button id="quickSlotsToggle"
+              class="btn btn-outline-secondary"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#quickSlotsCollapse"
+              aria-expanded="true"
+              aria-controls="quickSlotsCollapse"
+              data-expanded-label="Свернуть слоты"
+              data-collapsed-label="Развернуть слоты"
+              data-storage-key="newTracker.quickSlots">
+        Свернуть слоты
+      </button>
+    </div>
+    <div id="quickSlotsCollapse" class="collapse show mt-3">
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped mb-0">
+          <thead class="table-light">
+          <tr>
+            <th>Час</th>
+            <th>Начало</th>
+            <th>Конец</th>
+            <th>Работал?</th>
+            <th>Комментарий</th>
+            <th>Статус</th>
+            <th>Действия</th>
+          </tr>
+          </thead>
+          <tbody id="timeEntriesTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <h2 class="h4 mb-0 text-dark">Управление статусами</h2>
+      <button id="statusToggle"
+              class="btn btn-outline-secondary"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#statusCollapse"
+              aria-expanded="true"
+              aria-controls="statusCollapse"
+              data-expanded-label="Свернуть статусы"
+              data-collapsed-label="Развернуть статусы"
+              data-storage-key="newTracker.statuses">
+        Свернуть статусы
+      </button>
+    </div>
+    <div id="statusCollapse" class="collapse show mt-3">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+          <label for="newStatusName" class="form-label">Новый статус</label>
+          <input type="text" id="newStatusName" class="form-control" placeholder="Введите название статуса">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary w-100" onclick="addStatus()">Добавить статус</button>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-outline-secondary w-100" onclick="saveCurrentOrder()">Сохранить порядок</button>
+        </div>
+      </div>
+      <div class="table-responsive mt-3">
+        <table class="table table-bordered table-hover">
+          <thead class="table-light">
+          <tr>
+            <th style="width:60px;">Переместить</th>
+            <th style="width:80px;">ID</th>
+            <th>Название</th>
+            <th style="width:160px;">Действия</th>
+          </tr>
+          </thead>
+          <tbody id="statusTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
+
 <script src="/scripts.js"></script>
 </body>
 </html>

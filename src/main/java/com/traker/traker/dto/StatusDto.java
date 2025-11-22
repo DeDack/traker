@@ -7,4 +7,5 @@ public class StatusDto {
     private Long id;
     private String name;
     private Long userId;
+    private Integer order;
 }

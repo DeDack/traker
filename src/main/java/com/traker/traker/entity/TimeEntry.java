@@ -1,9 +1,10 @@
 package com.traker.traker.entity;
 
+import com.traker.traker.security.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 import lombok.ToString;
 
 @Entity
@@ -31,10 +32,17 @@ public class TimeEntry {
     @Column(nullable = false)
     private int minute;
 
+    @Column(name = "end_hour", nullable = false)
+    private int endHour;
+
+    @Column(name = "end_minute", nullable = false)
+    private int endMinute;
+
     @Column(nullable = false)
     private boolean worked;
 
-    @Column
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String comment;
 
     @ManyToOne

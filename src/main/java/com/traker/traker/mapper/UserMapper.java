@@ -45,6 +45,8 @@ public interface UserMapper extends DefaultMapper<User, UserDto> {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "password", ignore = true)
+    @Mapping(target = "encryptedDataKey", ignore = true)
+    @Mapping(target = "decryptedDataKey", ignore = true)
     User toEntity(CreateUserDto createUserDto);
 
     /**
@@ -58,5 +60,7 @@ public interface UserMapper extends DefaultMapper<User, UserDto> {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "password", ignore = true)
+    @Mapping(target = "encryptedDataKey", ignore = true)
+    @Mapping(target = "decryptedDataKey", ignore = true)
     void updateEntity(UpdateUserDto updateUserDto, @MappingTarget User user);
 }

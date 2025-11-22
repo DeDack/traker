@@ -93,11 +93,18 @@
         }
     };
 
+    function initFinanceCollapses() {
+        setupCollapseToggle('analyticsSectionToggle', 'analyticsSectionCollapse', { storageKey: 'finance.analytics', defaultExpanded: true });
+        setupCollapseToggle('budgetSectionToggle', 'budgetSectionCollapse', { storageKey: 'finance.budget', defaultExpanded: true });
+        setupCollapseToggle('categorySectionToggle', 'categorySectionCollapse', { storageKey: 'finance.categories', defaultExpanded: true });
+    }
+
     window.initFinancePage = async function () {
         if (!(await isAuthenticated()) && !(await refreshAccessToken())) {
             return showMessage('Сессия истекла, пожалуйста, войдите снова', 'danger', '/login.html');
         }
 
+        initFinanceCollapses();
         setupEventHandlers();
         initManagementComponents();
         await Promise.all([loadExpenseCategories(), loadIncomeCategories()]);
@@ -399,26 +406,59 @@
     }
 
     function updateMultiSelectOptions(selectId, categories) {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        const previous = new Set(Array.from(select.selectedOptions || []).map(option => option.value));
-        select.innerHTML = '';
-        categories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = String(category.id);
-            option.textContent = category.name;
-            if (previous.size === 0 || previous.has(option.value)) {
-                option.selected = true;
+        const element = document.getElementById(selectId);
+        if (!element) return;
+
+        if (element.tagName === 'SELECT') {
+            const previous = new Set(Array.from(element.selectedOptions || []).map(option => option.value));
+            element.innerHTML = '';
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = String(category.id);
+                option.textContent = category.name;
+                if (previous.size === 0 || previous.has(option.value)) {
+                    option.selected = true;
+                }
+                element.appendChild(option);
+            });
+            if (!categories.length) {
+                element.innerHTML = '';
+                return;
             }
-            select.appendChild(option);
-        });
-        if (!categories.length) {
-            select.innerHTML = '';
+            if (previous.size === 0) {
+                Array.from(element.options).forEach(option => option.selected = true);
+            }
             return;
         }
-        if (previous.size === 0) {
-            Array.from(select.options).forEach(option => option.selected = true);
-        }
+
+        const previousCheckboxes = Array.from(element.querySelectorAll('input[type="checkbox"]'));
+        const checkedValues = new Set(previousCheckboxes.filter(input => input.checked).map(input => input.value));
+        const previousValues = new Set(previousCheckboxes.map(input => input.value));
+        const shouldSelectNewByDefault = previousCheckboxes.length === 0
+            || previousCheckboxes.every(input => input.checked);
+        element.innerHTML = '';
+        categories.forEach(category => {
+            const value = String(category.id);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'form-check';
+
+            const input = document.createElement('input');
+            input.className = 'form-check-input';
+            input.type = 'checkbox';
+            input.id = `${selectId}-${value}`;
+            input.value = value;
+            const wasExisting = previousValues.has(value);
+            input.checked = checkedValues.has(value) || (!wasExisting && shouldSelectNewByDefault);
+
+            const label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.setAttribute('for', input.id);
+            label.textContent = category.name;
+
+            wrapper.appendChild(input);
+            wrapper.appendChild(label);
+            element.appendChild(wrapper);
+        });
     }
 
     function applyDefaultMonth(type) {
@@ -1199,9 +1239,14 @@
     }
 
     function getSelectedValues(selectId) {
-        const select = document.getElementById(selectId);
-        if (!select) return [];
-        return Array.from(select.selectedOptions || []).map(option => option.value).filter(Boolean);
+        const element = document.getElementById(selectId);
+        if (!element) return [];
+        if (element.tagName === 'SELECT') {
+            return Array.from(element.selectedOptions || []).map(option => option.value).filter(Boolean);
+        }
+        return Array.from(element.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(input => input.value)
+            .filter(Boolean);
     }
 
     function toInputValue(value) {
