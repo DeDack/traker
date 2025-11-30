@@ -27,7 +27,10 @@ public class RoleConfiguration {
                         "/register.html",
                         "/finance.html",
                         "/scripts.js",
-                        "/finance.js"
+                        "/finance.js",
+                        "/vpn-keys",
+                        "/vpn-keys/**",
+                        "/vpn.js"
                 ).permitAll()
 
                 // Эндпоинты управления пользователями — доступ только USER и выше
@@ -57,6 +60,11 @@ public class RoleConfiguration {
                         "/api/incomes/**",
                         "/api/budgets/**"
                 ).hasAnyRole("USER", "MODERATOR", "ADMIN")
+
+                // VPN endpoints
+                .requestMatchers(
+                        "/api/vpn/**"
+                ).hasAnyRole("ADMIN", "VPN_ISSUER")
 
                 // Остальные запросы требуют авторизации
                 .anyRequest().authenticated()

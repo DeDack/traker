@@ -37,3 +37,8 @@ auth:
 app:
   security:
     master-key: ${APP_MASTER_KEY:Ith717PYYY78K2Tz9Jzb2FbsHGmhQslUwPnyvviBsIY=}
+
+vpn:
+  encryptionKey: ${VPN_ENCRYPTION_KEY:0123456789ABCDEF0123456789ABCDEF}
+  serverPublicKey: ${VPN_SERVER_PUBLIC_KEY:changeme}
+  serverIp: ${VPN_SERVER_IP:127.0.0.1}

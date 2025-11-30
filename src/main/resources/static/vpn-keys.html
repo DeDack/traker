@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VPN Keys</title>
+    <script src="/vpn.js" defer></script>
+</head>
+<body>
+<h1>WireGuard VPN Keys</h1>
+<div id="create-form">
+    <input type="text" id="key-name" placeholder="Name" />
+    <input type="datetime-local" id="expiration" />
+    <button id="create-key">Create</button>
+</div>
+<table border="1" id="keys-table">
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>IP</th>
+        <th>Status</th>
+        <th>Expiration</th>
+        <th>Owner</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+<div>
+    <a href="/vpn-keys/audit.html">Audit</a>
+</div>
+</body>
+</html>
