@@ -16,9 +16,13 @@ spring:
 
   jpa:
     show-sql: ${SHOW_SQL:true}
+    properties:
+      hibernate:
+        default_schema: public
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yml
+    default-schema: public
 
 springdoc:
   swagger-ui:
