@@ -18,48 +18,54 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/vpn")
+@RequestMapping("/api/v1/vpn")
 @RequiredArgsConstructor
 public class VpnController {
 
     private final VpnKeyService vpnKeyService;
     private final VpnAuditService auditService;
 
-    @PostMapping("/keys/create")
+    @PostMapping("/keys")
     @PreAuthorize("hasAnyRole('ADMIN','VPN_ISSUER')")
     public VpnKeyResponse create(@RequestBody VpnKeyRequest request) {
         return vpnKeyService.create(request);
     }
 
-    @GetMapping("/keys/list")
+    @GetMapping("/keys")
     @PreAuthorize("hasAnyRole('ADMIN','VPN_ISSUER')")
-    public List<VpnKeyResponse> list(@RequestParam(value = "all", defaultValue = "false") boolean all) {
-        return vpnKeyService.listKeys(all);
+    public List<VpnKeyResponse> list() {
+        return vpnKeyService.listKeys();
     }
 
-    @PutMapping("/keys/update/{id}")
+    @GetMapping("/keys/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','VPN_ISSUER')")
-    public VpnKeyResponse update(@PathVariable UUID id, @RequestBody VpnKeyRequest request, @RequestParam(value = "admin", defaultValue = "false") boolean admin) {
-        return vpnKeyService.update(id, request, admin);
+    public VpnKeyResponse get(@PathVariable UUID id) {
+        return vpnKeyService.get(id);
     }
 
-    @DeleteMapping("/keys/delete/{id}")
+    @PutMapping("/keys/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','VPN_ISSUER')")
-    public void delete(@PathVariable UUID id, @RequestParam(value = "admin", defaultValue = "false") boolean admin) {
-        vpnKeyService.revoke(id, admin);
+    public VpnKeyResponse update(@PathVariable UUID id, @RequestBody VpnKeyRequest request) {
+        return vpnKeyService.update(id, request);
     }
 
-    @GetMapping("/keys/download-config/{id}")
+    @DeleteMapping("/keys/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','VPN_ISSUER')")
-    public ResponseEntity<String> download(@PathVariable UUID id, @RequestParam(value = "admin", defaultValue = "false") boolean admin) {
-        String config = vpnKeyService.downloadConfig(id, admin);
+    public void delete(@PathVariable UUID id) {
+        vpnKeyService.revoke(id);
+    }
+
+    @PostMapping("/keys/{id}/download")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<String> download(@PathVariable UUID id) {
+        String config = vpnKeyService.downloadConfig(id);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=wg-" + id + ".conf")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"vpn-profile-" + id + ".txt\"")
                 .contentType(MediaType.TEXT_PLAIN)
                 .body(config);
     }
 
-    @GetMapping("/audit/list")
+    @GetMapping("/audit")
     @PreAuthorize("hasRole('ADMIN')")
     public List<VpnAuditResponse> audit() {
         return auditService.findAll().stream().map(VpnMapper::toResponse).collect(Collectors.toList());

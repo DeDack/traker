@@ -14,6 +14,12 @@ public class VpnKeyResponse {
     private String name;
     private String publicKey;
     private String address;
+    private String protocol;
+    private UUID clientUuid;
+    private String realityShortId;
+    private String realitySni;
+    private String realityDest;
+    private String flow;
     private LocalDateTime expirationAt;
     private VpnKeyStatus status;
     private LocalDateTime createdAt;

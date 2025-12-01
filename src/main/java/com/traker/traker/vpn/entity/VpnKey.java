@@ -35,6 +35,27 @@ public class VpnKey {
     @Column(nullable = false)
     private String address;
 
+    @Column(nullable = false)
+    private String protocol;
+
+    @Column(name = "client_uuid", nullable = false)
+    private UUID clientUuid;
+
+    @Column(name = "reality_short_id", nullable = false)
+    private String realityShortId;
+
+    @Column(name = "reality_sni", nullable = false)
+    private String realitySni;
+
+    @Column(name = "reality_dest", nullable = false)
+    private String realityDest;
+
+    @Column(nullable = false)
+    private String flow;
+
+    @Column(columnDefinition = "jsonb")
+    private String meta;
+
     @Column(name = "expiration_at")
     private LocalDateTime expirationAt;
 

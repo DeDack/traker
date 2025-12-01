@@ -68,7 +68,7 @@ async function loadCurrentUser() {
 async function loadKeys() {
     toggleLoader(true);
     try {
-        const resp = await fetch('/api/vpn/keys/list?all=true', {headers: headers()});
+        const resp = await fetch('/api/v1/vpn/keys', {headers: headers()});
         if (!resp.ok) return;
         const data = await resp.json();
         const body = document.querySelector('#keys-table tbody');
@@ -82,7 +82,8 @@ async function loadKeys() {
                     <div class="fw-semibold">${escapeHtml(k.name)}</div>
                     <div class="text-muted small">${k.id}</div>
                 </td>
-                <td><span class="pill">${escapeHtml(k.address)}</span></td>
+                <td><span class="pill">${escapeHtml(k.protocol || 'VLESS')}</span></td>
+                <td><span class="pill">${escapeHtml(k.realityDest || k.address)}</span></td>
                 <td>${statusBadge(k.status)}</td>
                 <td>${formatDateTime(k.expirationAt)}</td>
                 <td>${formatDateTime(k.createdAt)}</td>
@@ -106,12 +107,12 @@ async function createKey() {
     const name = document.getElementById('key-name').value.trim();
     const expiration = document.getElementById('expiration').value;
     if (!name) {
-        showMessage('Введите имя ключа', 'warning');
+        showMessage('Введите имя профиля', 'warning');
         return;
     }
     toggleLoader(true);
     try {
-        const resp = await fetch('/api/vpn/keys/create', {
+        const resp = await fetch('/api/v1/vpn/keys', {
             method: 'POST',
             headers: headers(),
             body: JSON.stringify({name: name, expirationAt: expiration || null})
@@ -119,10 +120,10 @@ async function createKey() {
         if (resp.ok) {
             document.getElementById('key-name').value = '';
             document.getElementById('expiration').value = '';
-            showMessage('Ключ создан и зарегистрирован', 'success');
+            showMessage('Профиль создан и зарегистрирован', 'success');
             await loadKeys();
         } else {
-            showMessage('Не удалось создать ключ', 'danger');
+            showMessage('Не удалось создать профиль', 'danger');
         }
     } finally {
         toggleLoader(false);
@@ -131,11 +132,11 @@ async function createKey() {
 
 async function revoke(event) {
     const id = event.target.dataset.id;
-    if (!confirm('Отозвать ключ? Peer будет удалён из WireGuard.')) return;
+    if (!confirm('Отозвать профиль? Клиент будет удалён из Xray.')) return;
     toggleLoader(true);
     try {
-        await fetch(`/api/vpn/keys/delete/${id}?admin=true`, {method: 'DELETE', headers: headers()});
-        showMessage('Ключ отозван', 'info');
+        await fetch(`/api/v1/vpn/keys/${id}`, {method: 'DELETE', headers: headers()});
+        showMessage('Профиль отозван', 'info');
         await loadKeys();
     } finally {
         toggleLoader(false);
@@ -144,18 +145,18 @@ async function revoke(event) {
 
 async function downloadConfig(event) {
     const id = event.target.dataset.id;
-    const resp = await fetch(`/api/vpn/keys/download-config/${id}?admin=true`, {headers: headers()});
+    const resp = await fetch(`/api/v1/vpn/keys/${id}/download`, {method: 'POST', headers: headers()});
     if (!resp.ok) {
-        showMessage('Не удалось скачать конфиг', 'danger');
+        showMessage('Не удалось скачать профиль', 'danger');
         return;
     }
     const text = await resp.text();
     const blob = new Blob([text], {type: 'text/plain'});
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `wg-${id}.conf`;
+    link.download = `vless-${id}.txt`;
     link.click();
-    showMessage('Конфиг скачан', 'success');
+    showMessage('Профиль скачан', 'success');
 }
 
 async function loadAudit() {
@@ -163,7 +164,7 @@ async function loadAudit() {
     if (!table) return;
     toggleLoader(true);
     try {
-        const resp = await fetch('/api/vpn/audit/list', {headers: headers()});
+        const resp = await fetch('/api/v1/vpn/audit', {headers: headers()});
         if (!resp.ok) return;
         const data = await resp.json();
         table.innerHTML = '';

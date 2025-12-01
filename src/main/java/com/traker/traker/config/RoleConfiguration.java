@@ -63,7 +63,10 @@ public class RoleConfiguration {
 
                 // VPN endpoints
                 .requestMatchers(
-                        "/api/vpn/**"
+                        "/api/v1/vpn/keys/*/download"
+                ).authenticated()
+                .requestMatchers(
+                        "/api/v1/vpn/**"
                 ).hasAnyRole("ADMIN", "VPN_ISSUER")
 
                 // Остальные запросы требуют авторизации

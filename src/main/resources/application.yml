@@ -46,3 +46,14 @@ vpn:
   encryptionKey: ${VPN_ENCRYPTION_KEY:0123456789ABCDEF0123456789ABCDEF}
   serverPublicKey: ${VPN_SERVER_PUBLIC_KEY:changeme}
   serverIp: ${VPN_SERVER_IP:127.0.0.1}
+  vless:
+    server-host: ${VPN_VLESS_SERVER_HOST:144.31.118.242}
+    server-port: ${VPN_VLESS_SERVER_PORT:443}
+    public-key: ${VPN_VLESS_PUBLIC_KEY:gFnnJuJah8PPRNSPGj82cYvIM7cwqNxgUUsr74NUI0E}
+    sni: ${VPN_VLESS_SNI:www.cloudflare.com}
+    flow: ${VPN_VLESS_FLOW:xtls-rprx-vision}
+    config-path: ${VPN_VLESS_CONFIG_PATH:/usr/local/etc/xray/config.json}
+    inbound-tag: ${VPN_VLESS_INBOUND_TAG:vless-reality-in}
+    reload-script: ${VPN_VLESS_RELOAD_SCRIPT:/usr/local/bin/xray-reload.sh}
+    profile-name-prefix: ${VPN_VLESS_PROFILE_NAME_PREFIX:tracker-vpn}
+    dest: ${VPN_VLESS_DEST:www.cloudflare.com:443}
