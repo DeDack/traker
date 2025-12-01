@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>VLESS/REALITY VPN профили</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f4f7fb 0%, #eef1f6 100%);
+            min-height: 100vh;
+        }
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .card {
+            border: none;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+        }
+        .table thead th {
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            color: #6c757d;
+            background: #f8f9fb;
+        }
+        .table tbody tr td {
+            vertical-align: middle;
+        }
+        .pill {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            background: #eef2ff;
+            color: #3b5bdb;
+        }
+        .section-title {
+            font-weight: 700;
+            color: #1f2937;
+        }
+        #loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 1055;
+        }
+    </style>
+    <script src="/vpn.js" defer></script>
+</head>
+<body class="pb-5">
+<div id="loader" class="spinner-border text-primary"></div>
+<div class="container py-4">
+    <div class="page-header mb-4 flex-wrap">
+        <div>
+            <p class="text-muted mb-1">Управление VLESS/REALITY</p>
+            <h1 class="fw-bold mb-0">VPN профили</h1>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-secondary" onclick="window.location.href='/tracker.html'">⏱ Трекер</button>
+            <button class="btn btn-outline-secondary" onclick="window.location.href='/finance.html'">💳 Финансы</button>
+            <button id="audit-link" class="btn btn-outline-primary d-none" onclick="window.location.href='/vpn-keys/audit'">🧾 Аудит</button>
+            <button class="btn btn-danger" onclick="window.location.href='/login.html'">Выйти</button>
+        </div>
+    </div>
+
+    <div id="message" class="alert d-none" role="alert"></div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="section-title mb-0">Создать новый профиль</h5>
+                    <small class="text-muted">Имя и срок действия, остальное заполним сами</small>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="key-name" class="form-label">Имя ключа</label>
+                        <input type="text" class="form-control" id="key-name" placeholder="Например, iPhone" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="expiration" class="form-label">Срок действия</label>
+                        <input type="datetime-local" class="form-control" id="expiration" />
+                    </div>
+                    <button id="create-key" class="btn btn-primary w-100">Создать ключ</button>
+                    <p class="text-muted small mt-3 mb-0">Время создания берётся с сервера. Остальные параметры VLESS/REALITY подставляются автоматически.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="section-title mb-0">Список профилей</h5>
+                        <small class="text-muted">Админы видят всё, выдаватель видит только свои</small>
+                    </div>
+                    <span class="badge bg-light text-secondary" id="user-label">—</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="keys-table">
+                        <thead>
+                        <tr>
+                            <th>Имя</th>
+                            <th>Протокол</th>
+                            <th>Назначение</th>
+                            <th>Статус</th>
+                            <th>Срок действия</th>
+                            <th>Создан</th>
+                            <th>Создатель</th>
+                            <th class="text-end">Действия</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

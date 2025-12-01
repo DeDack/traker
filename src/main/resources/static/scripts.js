@@ -3,6 +3,7 @@ let editingEntry = null;
 let currentEntries = [];
 const timeCharts = { donut: null, bar: null };
 let classicEntryModal = null;
+let cachedUser = null;
 const classicModalState = {
     elements: null
 };
@@ -77,6 +78,18 @@ function showMessage(message, type = 'info', redirectUrl = null) {
     }
 }
 
+function setVpnLinksVisibility(user) {
+    const roles = user?.roles || [];
+    const hasVpnAccess = roles.some(role => role?.name === 'ADMIN' || role?.name === 'VPN_ISSUER');
+    document.querySelectorAll('[data-vpn-link]').forEach(btn => {
+        if (hasVpnAccess) {
+            btn.classList.remove('d-none');
+        } else {
+            btn.classList.add('d-none');
+        }
+    });
+}
+
 function toggleLoader(show) {
     const loader = document.getElementById('loader');
     if (loader) loader.style.display = show ? 'block' : 'none';
@@ -138,8 +151,10 @@ async function displayUsername() {
         const resp = await apiFetch('/api/users/me');
         if (resp.ok) {
             const user = await resp.json();
+            cachedUser = user;
             const el = document.getElementById('username');
             if (el) el.textContent = user.name || user.username || 'Пользователь';
+            setVpnLinksVisibility(user);
         }
     } catch {}
 }
